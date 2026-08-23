@@ -47,7 +47,14 @@ export const LoginPage: React.FC = () => {
 
   const fillDemoAccount = (email: string) => {
     setValue('email', email);
-    setValue('password', email.startsWith('admin') ? 'Admin@123456' : email.startsWith('instructor') ? 'Instructor@123456' : 'Student@123456');
+    setValue(
+      'password',
+      email.startsWith('admin')
+        ? 'Naina_Admin@741852963'
+        : email.startsWith('instructor')
+        ? 'Naina_Instructor@741852963'
+        : 'Naina_Student@741852963'
+    );
   };
 
   return (
