@@ -147,8 +147,3 @@ npm test
 - `tests/auth.test.ts` (4/4 passed) — Registration, JWT access/refresh token issuance, auth error handling.
 - `tests/course.test.ts` (2/2 passed) — Catalog pagination and public health endpoints.
 - `client/src/tests/` (8/8 passed) — Component rendering, state management, and AI message renderer.
-
----
-
-## 📄 License
-This project is open source and available under the [MIT License](LICENSE).
