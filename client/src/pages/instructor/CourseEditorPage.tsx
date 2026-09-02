@@ -7,7 +7,10 @@ import { Button } from '../../components/ui/Button';
 import { useUIStore } from '../../store/useUIStore';
 import { Plus, Trash2, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 
-import { Module } from '../../types';
+import { Module, Lesson } from '../../types';
+import { LessonVideoManager } from '../../components/instructor/LessonVideoManager';
+import { Badge } from '../../components/ui/Badge';
+import { Youtube, UploadCloud, Camera, Film, ChevronDown, ChevronUp } from 'lucide-react';
 
 export const CourseEditorPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +19,7 @@ export const CourseEditorPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { addToast } = useUIStore();
   const [step, setStep] = useState(1);
+  const [editingLessonKey, setEditingLessonKey] = useState<string | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -38,8 +42,26 @@ export const CourseEditorPage: React.FC = () => {
       title: 'Module 1: Introduction & Environment Setup',
       order: 1,
       lessons: [
-        { title: '1. Orientation & Project Overview', duration: 600, order: 1, isPreview: true, type: 'VIDEO' },
-        { title: '2. Workspace & Environment Configuration', duration: 1200, order: 2, isPreview: false, type: 'VIDEO' },
+        {
+          title: '1. Orientation & Project Overview',
+          duration: 600,
+          order: 1,
+          isPreview: true,
+          type: 'VIDEO',
+          videoSource: 'YOUTUBE',
+          videoStatus: 'READY',
+          youtubeVideoId: 'Oe421EPjeBE',
+        },
+        {
+          title: '2. Workspace & Environment Configuration',
+          duration: 1200,
+          order: 2,
+          isPreview: false,
+          type: 'VIDEO',
+          videoSource: 'YOUTUBE',
+          videoStatus: 'READY',
+          youtubeVideoId: 'bMknfKXIFA8',
+        },
       ],
     },
   ]);
@@ -370,22 +392,171 @@ export const CourseEditorPage: React.FC = () => {
         {step === 3 && (
           <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">Step 3: Curriculum & Lesson Modules</h2>
+              <div>
+                <h2 className="text-lg font-bold text-white">Step 3: Curriculum & Multi-Source Video Lessons</h2>
+                <p className="text-xs text-slate-400">
+                  Structure modules and configure lessons using YouTube embeds, direct Cloudinary uploads, or live browser recording.
+                </p>
+              </div>
               <Button variant="outline" size="sm" onClick={handleAddModule} leftIcon={<Plus className="w-4 h-4" />}>
                 Add Module
               </Button>
             </div>
 
-            <div className="space-y-4">
-              {modules.map((mod, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-                  <h3 className="text-sm font-bold text-brand-400">{mod.title}</h3>
-                  <div className="space-y-2 pl-4 border-l-2 border-slate-800">
-                    {mod.lessons.map((lesson, lIdx) => (
-                      <div key={lIdx} className="text-xs text-slate-300 font-medium">
-                        • {lesson.title} ({Math.round(lesson.duration / 60)} mins)
-                      </div>
-                    ))}
+            <div className="space-y-6">
+              {modules.map((mod, modIdx) => (
+                <div key={modIdx} className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-md">
+                  <div className="flex items-center justify-between gap-3">
+                    <input
+                      type="text"
+                      value={mod.title}
+                      onChange={(e) => {
+                        const updated = [...modules];
+                        updated[modIdx].title = e.target.value;
+                        setModules(updated);
+                      }}
+                      className="flex-1 bg-slate-950 border border-slate-800 focus:border-brand-500 font-bold text-sm text-brand-300 rounded-xl px-3.5 py-2"
+                      placeholder="Module Title..."
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const updated = [...modules];
+                        updated[modIdx].lessons.push({
+                          title: `New Lesson ${updated[modIdx].lessons.length + 1}`,
+                          duration: 600,
+                          order: updated[modIdx].lessons.length + 1,
+                          isPreview: false,
+                          type: 'VIDEO',
+                          videoSource: 'YOUTUBE',
+                          videoStatus: 'READY',
+                          youtubeVideoId: 'Oe421EPjeBE',
+                        });
+                        setModules(updated);
+                      }}
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
+                    >
+                      Add Lesson
+                    </Button>
+                  </div>
+
+                  {/* Lessons List in Module */}
+                  <div className="space-y-3 pl-2 sm:pl-4 border-l-2 border-slate-800">
+                    {mod.lessons.map((lesson, lIdx) => {
+                      const lessonKey = `${modIdx}-${lIdx}`;
+                      const isEditingVideo = editingLessonKey === lessonKey;
+
+                      return (
+                        <div
+                          key={lIdx}
+                          className="rounded-xl bg-slate-950/80 border border-slate-800/90 p-4 space-y-3 transition-all hover:border-slate-700"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-xs font-mono text-slate-500 font-bold shrink-0">
+                                {modIdx + 1}.{lIdx + 1}
+                              </span>
+                              <input
+                                type="text"
+                                value={lesson.title}
+                                onChange={(e) => {
+                                  const updated = [...modules];
+                                  updated[modIdx].lessons[lIdx].title = e.target.value;
+                                  setModules(updated);
+                                }}
+                                className="flex-1 bg-slate-900 border border-slate-800 focus:border-brand-500 text-xs font-semibold text-white rounded-lg px-3 py-1.5"
+                                placeholder="Lesson Title..."
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <select
+                                value={lesson.type}
+                                onChange={(e) => {
+                                  const updated = [...modules];
+                                  updated[modIdx].lessons[lIdx].type = e.target.value as any;
+                                  setModules(updated);
+                                }}
+                                className="bg-slate-900 border border-slate-800 text-[11px] font-semibold text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none"
+                              >
+                                <option value="VIDEO">Video</option>
+                                <option value="ARTICLE">Article</option>
+                                <option value="QUIZ">Quiz</option>
+                              </select>
+
+                              {lesson.type === 'VIDEO' && (
+                                <Badge
+                                  variant={
+                                    lesson.videoSource === 'YOUTUBE'
+                                      ? 'rose'
+                                      : lesson.videoSource === 'CLOUDINARY'
+                                      ? 'cyan'
+                                      : 'gray'
+                                  }
+                                  size="sm"
+                                >
+                                  {lesson.videoSource || 'NO SOURCE'}
+                                </Badge>
+                              )}
+
+                              {lesson.type === 'VIDEO' && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() =>
+                                    setEditingLessonKey(isEditingVideo ? null : lessonKey)
+                                  }
+                                  rightIcon={
+                                    isEditingVideo ? (
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    )
+                                  }
+                                >
+                                  {isEditingVideo ? 'Close Media' : 'Configure Video'}
+                                </Button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...modules];
+                                  updated[modIdx].lessons.splice(lIdx, 1);
+                                  setModules(updated);
+                                }}
+                                className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Expandable Lesson Video Manager */}
+                          {isEditingVideo && lesson.type === 'VIDEO' && (
+                            <div className="pt-3 border-t border-slate-800 animate-in fade-in slide-in-from-top-2">
+                              <LessonVideoManager
+                                initialSource={lesson.videoSource}
+                                initialYoutubeId={lesson.youtubeVideoId}
+                                initialCloudinaryUrl={lesson.cloudinaryUrl}
+                                initialDuration={lesson.duration}
+                                onVideoConfigured={(videoData) => {
+                                  const updated = [...modules];
+                                  updated[modIdx].lessons[lIdx] = {
+                                    ...updated[modIdx].lessons[lIdx],
+                                    ...videoData,
+                                  };
+                                  setModules(updated);
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

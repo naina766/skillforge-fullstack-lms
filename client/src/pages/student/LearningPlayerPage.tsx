@@ -7,6 +7,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { Button } from '../../components/ui/Button';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { Badge } from '../../components/ui/Badge';
+import { VideoLessonPlayer } from '../../components/video/VideoLessonPlayer';
 import {
   PlayCircle,
   CheckCircle2,
@@ -16,6 +17,8 @@ import {
   Award,
   BookOpen,
   FileText,
+  Sparkles,
+  Lock,
 } from 'lucide-react';
 
 export const LearningPlayerPage: React.FC = () => {
@@ -36,7 +39,17 @@ export const LearningPlayerPage: React.FC = () => {
   // Fetch Course details
   const { data: courseData, isLoading: isCourseLoading } = useQuery({
     queryKey: ['course-player', courseId],
-    queryFn: () => courseApi.getCourseBySlug(courseId!).catch(() => courseApi.getCourses({ limit: 1 }).then((r) => ({ data: r.data.items[0] }))),
+    queryFn: async () => {
+      if (!courseId) throw new Error('No course ID');
+      try {
+        if (courseId.match(/^[0-9a-fA-F]{24}$/)) {
+          return await courseApi.getCourseById(courseId);
+        }
+        return await courseApi.getCourseBySlug(courseId);
+      } catch {
+        return await courseApi.getCourseBySlug(courseId).catch(() => courseApi.getCourseById(courseId));
+      }
+    },
     enabled: !!courseId,
   });
 
@@ -53,10 +66,12 @@ export const LearningPlayerPage: React.FC = () => {
     return list;
   }, [course]);
 
-  // Set default active lesson
+  // Set default active lesson & resume position
   useEffect(() => {
     if (allLessons.length > 0 && !activeLessonId) {
-      if (enrollment?.currentLesson) {
+      if (enrollment?.lastWatchedLesson && allLessons.some((l) => l._id === enrollment.lastWatchedLesson)) {
+        setActiveLessonId(enrollment.lastWatchedLesson);
+      } else if (enrollment?.currentLesson && allLessons.some((l) => l._id === enrollment.currentLesson)) {
         setActiveLessonId(enrollment.currentLesson);
       } else {
         setActiveLessonId(allLessons[0]._id || 'lesson-0');
@@ -69,24 +84,34 @@ export const LearningPlayerPage: React.FC = () => {
 
   const completedLessonIds = new Set(enrollment?.progress || []);
 
-  // Update progress mutation
-  const progressMutation = useMutation({
-    mutationFn: ({ lessonId, isCompleted }: { lessonId: string; isCompleted: boolean }) =>
-      enrollmentApi.updateProgress(enrollment!._id, lessonId, isCompleted),
+  // Throttled Video Progress Mutation
+  const videoProgressMutation = useMutation({
+    mutationFn: ({
+      lessonId,
+      watchedSeconds,
+      duration,
+    }: {
+      lessonId: string;
+      watchedSeconds: number;
+      duration: number;
+    }) => enrollmentApi.updateVideoProgress(enrollment!._id, lessonId, watchedSeconds, duration),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['enrollment-player', courseId] });
       queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
 
       if (res.data.certificate) {
-        addToast('success', '🎉 Course Completed! Certificate generated.');
+        addToast('success', '🎉 100% Course Completed! Official Certificate issued.');
       }
     },
   });
 
-  const handleToggleComplete = (lessonId: string) => {
-    if (!enrollment?._id) return;
-    const isCompleted = !completedLessonIds.has(lessonId);
-    progressMutation.mutate({ lessonId, isCompleted });
+  const handleProgressUpdate = (watchedSeconds: number, duration: number) => {
+    if (!enrollment?._id || !activeLesson?._id) return;
+    videoProgressMutation.mutate({
+      lessonId: activeLesson._id,
+      watchedSeconds,
+      duration,
+    });
   };
 
   const handleNextLesson = () => {
@@ -111,12 +136,22 @@ export const LearningPlayerPage: React.FC = () => {
     );
   }
 
+  // Find saved position for active lesson if any
+  const savedLessonProgress = enrollment?.lessonProgress?.find((lp) => lp.lessonId === activeLesson?._id);
+  const initialPosition =
+    enrollment?.lastWatchedLesson === activeLesson?._id
+      ? enrollment?.lastWatchedPosition || savedLessonProgress?.watchedSeconds || 0
+      : savedLessonProgress?.watchedSeconds || 0;
+
   return (
     <div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col">
       {/* Top Header */}
       <header className="h-16 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-4">
-          <Link to="/dashboard/my-learning" className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+          <Link
+            to="/dashboard/my-learning"
+            className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div className="overflow-hidden">
@@ -127,7 +162,7 @@ export const LearningPlayerPage: React.FC = () => {
 
         <div className="flex items-center gap-4">
           <div className="hidden sm:block w-48">
-            <ProgressBar progress={enrollment?.completionPercentage || 0} showPercentage={false} />
+            <ProgressBar progress={enrollment?.completionPercentage || 0} showPercentage={true} />
           </div>
 
           {enrollment?.status === 'COMPLETED' && (
@@ -142,32 +177,27 @@ export const LearningPlayerPage: React.FC = () => {
 
       {/* Main Content & Sidebar Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Main Content Area */}
+        {/* Main Player Area */}
         <div className="flex-1 flex flex-col overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          {/* Mock / Video Frame */}
-          <div className="relative w-full aspect-video rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center group">
-            <div className="text-center p-8 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-brand-600/20 text-brand-400 border border-brand-500/30 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                <PlayCircle className="w-10 h-10" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">{activeLesson?.title}</h3>
-                <p className="text-xs text-slate-400 mt-1">Interactive Video Lesson Stream</p>
-              </div>
-            </div>
-          </div>
+          {activeLesson && (
+            <VideoLessonPlayer
+              key={activeLesson._id}
+              lesson={activeLesson}
+              courseTitle={course.title}
+              initialPosition={initialPosition}
+              isCompleted={activeLesson._id ? completedLessonIds.has(activeLesson._id) : false}
+              onProgressUpdate={handleProgressUpdate}
+              onNextLesson={handleNextLesson}
+              hasNextLesson={activeLessonIndex < allLessons.length - 1}
+            />
+          )}
 
-          {/* Lesson Action Controls */}
+          {/* Lesson Navigation Controls */}
           <div className="flex items-center justify-between pb-6 border-b border-slate-800">
-            <div className="flex items-center gap-3">
-              <Button
-                variant={completedLessonIds.has(activeLesson?._id) ? 'outline' : 'primary'}
-                size="sm"
-                onClick={() => handleToggleComplete(activeLesson?._id || '')}
-                leftIcon={<CheckCircle2 className="w-4 h-4" />}
-              >
-                {completedLessonIds.has(activeLesson?._id) ? 'Completed' : 'Mark as Complete'}
-              </Button>
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span>Lesson {activeLessonIndex + 1} of {allLessons.length}</span>
+              <span>•</span>
+              <span className="text-brand-400 font-semibold">{activeLesson?.moduleTitle}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -192,19 +222,20 @@ export const LearningPlayerPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Lesson Notes / Resources */}
+          {/* Lesson Notes & Architecture Overview */}
           <div className="space-y-4 max-w-4xl">
-            <h2 className="text-lg font-bold text-white">Lesson Overview</h2>
+            <h2 className="text-lg font-bold text-white">Lesson Notes & Implementation Guide</h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              {activeLesson?.description || 'In this lesson, you will master practical implementation patterns, architecture logic, and code optimization.'}
+              {activeLesson?.description ||
+                'In this module, you will master practical implementation patterns, architecture logic, and code optimization.'}
             </p>
           </div>
         </div>
 
         {/* Sidebar Lesson Tree */}
-        <div className="w-full lg:w-80 bg-slate-900/60 border-l border-slate-800 p-4 space-y-4 overflow-y-auto shrink-0">
+        <div className="w-full lg:w-84 bg-slate-900/70 border-l border-slate-800 p-4 space-y-4 overflow-y-auto shrink-0">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Course Modules</h3>
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Course Curriculum</h3>
             <span className="text-xs text-slate-400 font-mono">
               {completedLessonIds.size}/{allLessons.length} Done
             </span>
@@ -221,22 +252,26 @@ export const LearningPlayerPage: React.FC = () => {
 
                     return (
                       <button
-                        key={lesson._id}
-                        onClick={() => setActiveLessonId(lesson._id!)}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs transition-all text-left ${
+                        key={lesson._id || lesson.order}
+                        onClick={() => setActiveLessonId(lesson._id || null)}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs flex items-center justify-between transition-all ${
                           isCurrent
                             ? 'bg-brand-600 text-white font-bold shadow-glow-blue'
-                            : 'text-slate-300 hover:bg-slate-800'
+                            : 'text-slate-300 hover:bg-slate-800/60'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div className="flex items-center gap-2 truncate">
                           {isDone ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className={`w-4 h-4 ${isCurrent ? 'text-white' : 'text-emerald-400'} shrink-0`} />
                           ) : (
-                            <PlayCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                            <PlayCircle className={`w-4 h-4 ${isCurrent ? 'text-white' : 'text-slate-400'} shrink-0`} />
                           )}
                           <span className="truncate">{lesson.title}</span>
                         </div>
+
+                        <span className="text-[10px] opacity-70 font-mono shrink-0 ml-2">
+                          {Math.round(lesson.duration / 60)}m
+                        </span>
                       </button>
                     );
                   })}

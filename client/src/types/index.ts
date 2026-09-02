@@ -26,11 +26,20 @@ export interface Category {
   icon?: string;
 }
 
+export type VideoSource = 'YOUTUBE' | 'CLOUDINARY' | 'NONE';
+export type VideoStatus = 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'READY' | 'FAILED';
+
 export interface Lesson {
   _id?: string;
   title: string;
   description?: string;
   type: 'VIDEO' | 'ARTICLE' | 'QUIZ' | 'ASSIGNMENT';
+  videoSource?: VideoSource;
+  videoStatus?: VideoStatus;
+  youtubeVideoId?: string;
+  cloudinaryPublicId?: string;
+  cloudinaryUrl?: string;
+  thumbnailUrl?: string;
   videoUrl?: string;
   duration: number;
   order: number;
@@ -78,6 +87,15 @@ export interface Course {
   createdAt: string;
 }
 
+export interface LessonProgress {
+  lessonId: string;
+  watchedSeconds: number;
+  duration: number;
+  progressPercent: number;
+  completed: boolean;
+  lastWatchedAt: string;
+}
+
 export interface Enrollment {
   _id: string;
   student: string;
@@ -87,6 +105,9 @@ export interface Enrollment {
   completedLessons: number;
   completionPercentage: number;
   currentLesson?: string;
+  lastWatchedLesson?: string;
+  lastWatchedPosition?: number;
+  lessonProgress?: LessonProgress[];
   startedAt: string;
   lastAccessedAt: string;
   completedAt?: string;

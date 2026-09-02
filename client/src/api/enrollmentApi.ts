@@ -17,6 +17,27 @@ export const enrollmentApi = {
     return res.data;
   },
 
+  updateVideoProgress: async (
+    id: string,
+    lessonId: string,
+    watchedSeconds: number,
+    duration: number
+  ) => {
+    const res = await axiosClient.patch<
+      ApiResponse<{
+        enrollment: Enrollment;
+        lessonProgress: any;
+        isCompleted: boolean;
+        certificate?: Certificate;
+      }>
+    >(`/enrollments/${id}/video-progress`, {
+      lessonId,
+      watchedSeconds,
+      duration,
+    });
+    return res.data;
+  },
+
   updateProgress: async (id: string, lessonId: string, isCompleted = true) => {
     const res = await axiosClient.patch<ApiResponse<{ enrollment: Enrollment; certificate?: Certificate }>>(`/enrollments/${id}/progress`, {
       lessonId,

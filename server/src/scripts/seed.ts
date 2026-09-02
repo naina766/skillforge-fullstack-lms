@@ -126,6 +126,51 @@ const seedDatabase = async () => {
     const aiId = categoryMap.get('AI & Machine Learning');
     const dataId = categoryMap.get('Data Engineering');
 
+    const educationalVideos: Record<string, string[]> = {
+      'Production-Grade Node.js & Microservices Masterclass': ['Oe421EPjeBE', 'fBNz5xF-Kx4', '7rU0bK6XN8I', 'TlB_eWDSMt4'],
+      'Live Workshop: React 18 & TanStack Query v5 Patterns': ['bMknfKXIFA8', '843nec-IvW0', 'wm5gMKuwSYk'],
+      'Docker, Kubernetes & AWS CI/CD Pipeline Bootcamp': ['3c-iBn73dDE', 'fqMOX6JJhGo', 'Wf2eSG3owoA'],
+      'Generative AI & LLM Integration for Web Apps': ['i_LwzRVP7bg', 'jGwO_ybQ644', 'aircAruvnKk'],
+      'Full-Stack TypeScript SaaS Portfolio Accelerator': ['30LWjhZ8750', 'ZVnjOPwW4ZA', 'd56mG7DezGs'],
+      'Advanced MongoDB Aggregation Pipelines': ['ofme2o29ngU', 'W-b9KGwVdcs'],
+      'Cyber Security Essentials & Web Penetration Testing': ['inWWhr5tnEA', 'U_P23uqPH4A'],
+      'Figma to Production React Components Design System': ['c9Wg6Cb_YlU', 'FTFaQWZBqQ8'],
+      'React Native & Expo Cross-Platform Masterclass': ['0-S5a0eXPoc', 'obH0Po_RdWk'],
+      'Python Data Science & Automated Analytics': ['LHBE6Q9XlzI', 'GPVsHOlRBBI'],
+      'Solidity Smart Contracts & Web3 DApps': ['gyMwXuJrbJQ', 'M576WGiDBdQ'],
+      'System Design & Micro-Architecture for Tech Interviews': ['m8Icp_Cid5o', 'xpDnVSmGVdI'],
+      'Tailwind CSS & Framer Motion UI Animation Techniques': ['ft30zcMlFao', 'Lz3m41u5nO8'],
+      'GraphQL & Apollo Server Full-Stack Development': ['e4MQd4aD5E4', 'ed8SzALpx1Q'],
+      'BigQuery & Data Warehouse Infrastructure': ['4P_Kj_q3yKk', 'w_k81oV01iY'],
+      'NestJS & Enterprise TypeScript Microservices': ['2n3xS89456I', 'GHTA143_b-s'],
+      'Rust Programming for High Performance Web Backends': ['ygL_xcgkMzQ', 'BpPEoQ479wM'],
+      'Agile Product Management & Product Discovery': ['502ILHjX9EE', 'bE4zD9kQf4E'],
+      'Automated End-to-End Testing with Playwright & Cypress': ['EcxOSLz62Do', '7rU0bK6XN8I'],
+      'Next.js 14 App Router & Server Actions Architecture': ['ZVnjOPwW4ZA', 'wm5gMKuwSYk'],
+    };
+
+    const defaultFallbackVideos = ['Oe421EPjeBE', 'bMknfKXIFA8', '3c-iBn73dDE', 'i_LwzRVP7bg', '30LWjhZ8750'];
+
+    const attachVideoMetadata = (courseTitle: string, lesson: any, lessonIdx: number) => {
+      if (lesson.type === 'VIDEO') {
+        const pool = educationalVideos[courseTitle] || defaultFallbackVideos;
+        const videoId = pool[lessonIdx % pool.length] || 'Oe421EPjeBE';
+        return {
+          ...lesson,
+          videoSource: 'YOUTUBE',
+          videoStatus: 'READY',
+          youtubeVideoId: videoId,
+          videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+          thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        };
+      }
+      return {
+        ...lesson,
+        videoSource: 'NONE',
+        videoStatus: 'READY',
+      };
+    };
+
     const coursesData: any[] = [
       {
         title: 'Production-Grade Node.js & Microservices Masterclass',
@@ -154,7 +199,7 @@ const seedDatabase = async () => {
               { title: '1. Course Orientation & Architecture Breakdown', duration: 600, order: 1, isPreview: true, type: 'VIDEO' },
               { title: '2. Setting Up Express & TypeScript Monorepo', duration: 1200, order: 2, isPreview: false, type: 'VIDEO' },
               { title: '3. Clean Architecture & Layer Separation', duration: 900, order: 3, isPreview: false, type: 'ARTICLE' },
-            ],
+            ].map((l, i) => attachVideoMetadata('Production-Grade Node.js & Microservices Masterclass', l, i)),
           },
           {
             title: 'Module 2: MongoDB Indexing & Mongoose Schemas',
@@ -162,7 +207,7 @@ const seedDatabase = async () => {
             lessons: [
               { title: '1. Designing Mongoose Models & Schemas', duration: 1500, order: 1, isPreview: false, type: 'VIDEO' },
               { title: '2. High Performance Database Index Strategies', duration: 1800, order: 2, isPreview: false, type: 'VIDEO' },
-            ],
+            ].map((l, i) => attachVideoMetadata('Production-Grade Node.js & Microservices Masterclass', l, i + 3)),
           },
         ],
       },
@@ -198,7 +243,7 @@ const seedDatabase = async () => {
             lessons: [
               { title: 'Session 1: Query Invalidation & Cache Keys', duration: 3600, order: 1, isPreview: true, type: 'VIDEO' },
               { title: 'Session 2: Zustand Global Session Sync', duration: 3600, order: 2, isPreview: false, type: 'VIDEO' },
-            ],
+            ].map((l, i) => attachVideoMetadata('Live Workshop: React 18 & TanStack Query v5 Patterns', l, i)),
           },
         ],
       },
@@ -228,7 +273,7 @@ const seedDatabase = async () => {
             lessons: [
               { title: '1. Container Fundamentals', duration: 1200, order: 1, isPreview: true, type: 'VIDEO' },
               { title: '2. Multi-stage Docker Builds', duration: 1800, order: 2, isPreview: false, type: 'VIDEO' },
-            ],
+            ].map((l, i) => attachVideoMetadata('Docker, Kubernetes & AWS CI/CD Pipeline Bootcamp', l, i)),
           },
         ],
       },
@@ -257,7 +302,7 @@ const seedDatabase = async () => {
             order: 1,
             lessons: [
               { title: '1. Designing AIService Interfaces', duration: 1200, order: 1, isPreview: true, type: 'VIDEO' },
-            ],
+            ].map((l, i) => attachVideoMetadata('Generative AI & LLM Integration for Web Apps', l, i)),
           },
         ],
       },
@@ -286,7 +331,7 @@ const seedDatabase = async () => {
             order: 1,
             lessons: [
               { title: '1. SaaS System Design', duration: 1500, order: 1, isPreview: true, type: 'VIDEO' },
-            ],
+            ].map((l, i) => attachVideoMetadata('Full-Stack TypeScript SaaS Portfolio Accelerator', l, i)),
           },
         ],
       },
@@ -369,7 +414,7 @@ const seedDatabase = async () => {
             lessons: [
               { title: '1. Introduction & Overview', duration: 900, order: 1, isPreview: true, type: 'VIDEO' },
               { title: '2. Core Principles & Setup', duration: 1200, order: 2, isPreview: false, type: 'VIDEO' },
-            ],
+            ].map((l, i) => attachVideoMetadata(title, l, i)),
           },
         ],
       });

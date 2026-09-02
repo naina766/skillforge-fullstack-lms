@@ -4,12 +4,20 @@ export type CourseType = 'COURSE' | 'WORKSHOP' | 'BOOTCAMP' | 'WEBINAR';
 export type CourseLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'ALL_LEVELS';
 export type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
 export type LessonType = 'VIDEO' | 'ARTICLE' | 'QUIZ' | 'ASSIGNMENT';
+export type VideoSource = 'YOUTUBE' | 'CLOUDINARY' | 'NONE';
+export type VideoStatus = 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'READY' | 'FAILED';
 
 export interface ILesson {
   _id?: Types.ObjectId;
   title: string;
   description?: string;
   type: LessonType;
+  videoSource: VideoSource;
+  videoStatus: VideoStatus;
+  youtubeVideoId?: string;
+  cloudinaryPublicId?: string;
+  cloudinaryUrl?: string;
+  thumbnailUrl?: string;
   videoUrl?: string;
   duration: number; // in seconds
   order: number;
@@ -64,6 +72,12 @@ const lessonSchema = new Schema<ILesson>(
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     type: { type: String, enum: ['VIDEO', 'ARTICLE', 'QUIZ', 'ASSIGNMENT'], default: 'VIDEO' },
+    videoSource: { type: String, enum: ['YOUTUBE', 'CLOUDINARY', 'NONE'], default: 'NONE' },
+    videoStatus: { type: String, enum: ['PENDING', 'UPLOADING', 'PROCESSING', 'READY', 'FAILED'], default: 'READY' },
+    youtubeVideoId: { type: String, default: '' },
+    cloudinaryPublicId: { type: String, default: '' },
+    cloudinaryUrl: { type: String, default: '' },
+    thumbnailUrl: { type: String, default: '' },
     videoUrl: { type: String, default: '' },
     duration: { type: Number, default: 0 },
     order: { type: Number, required: true },

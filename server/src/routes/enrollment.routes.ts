@@ -10,6 +10,7 @@ router.post('/', EnrollmentController.enroll);
 router.get('/', EnrollmentController.getUserEnrollments);
 router.get('/course/:courseId', EnrollmentController.getEnrollmentByCourse);
 router.get('/:id', EnrollmentController.getEnrollmentById);
+router.patch('/:id/video-progress', EnrollmentController.updateVideoProgress);
 router.patch('/:id/progress', EnrollmentController.updateProgress);
 
 export default router;

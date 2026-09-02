@@ -40,6 +40,22 @@ export class EnrollmentController {
     }
   }
 
+  static async updateVideoProgress(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { lessonId, watchedSeconds, duration } = req.body;
+      const result = await EnrollmentService.updateVideoProgress(
+        req.params.id,
+        req.user!.userId,
+        lessonId,
+        parseFloat(watchedSeconds) || 0,
+        parseFloat(duration) || 0
+      );
+      return ApiResponse.success(res, result, 200, 'Video playback progress recorded.');
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   static async updateProgress(req: Request, res: Response, next: NextFunction) {
     try {
       const { lessonId, isCompleted } = req.body;

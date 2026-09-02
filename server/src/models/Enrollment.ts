@@ -2,6 +2,15 @@ import { Schema, model, Document, Types } from 'mongoose';
 
 export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 
+export interface ILessonProgress {
+  lessonId: string;
+  watchedSeconds: number;
+  duration: number;
+  progressPercent: number;
+  completed: boolean;
+  lastWatchedAt: Date;
+}
+
 export interface IEnrollment extends Document {
   student: Types.ObjectId;
   course: Types.ObjectId;
@@ -9,6 +18,9 @@ export interface IEnrollment extends Document {
   progress: string[]; // Completed lesson IDs
   completedLessons: number;
   currentLesson?: string;
+  lastWatchedLesson?: string;
+  lastWatchedPosition?: number;
+  lessonProgress: ILessonProgress[];
   completionPercentage: number;
   startedAt: Date;
   lastAccessedAt: Date;
@@ -18,6 +30,18 @@ export interface IEnrollment extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const lessonProgressSchema = new Schema<ILessonProgress>(
+  {
+    lessonId: { type: String, required: true },
+    watchedSeconds: { type: Number, default: 0 },
+    duration: { type: Number, default: 0 },
+    progressPercent: { type: Number, default: 0 },
+    completed: { type: Boolean, default: false },
+    lastWatchedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const enrollmentSchema = new Schema<IEnrollment>(
   {
@@ -49,6 +73,17 @@ const enrollmentSchema = new Schema<IEnrollment>(
     },
     currentLesson: {
       type: String,
+    },
+    lastWatchedLesson: {
+      type: String,
+    },
+    lastWatchedPosition: {
+      type: Number,
+      default: 0,
+    },
+    lessonProgress: {
+      type: [lessonProgressSchema],
+      default: [],
     },
     completionPercentage: {
       type: Number,
