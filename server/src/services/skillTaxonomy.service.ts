@@ -432,10 +432,13 @@ export class SkillTaxonomyService {
     const taxonomy = this.getRoleTaxonomy(targetRole);
     const existingLower = new Set(existingSkills.map((s) => s.toLowerCase()));
 
-    return taxonomy.phases.map((phase) => ({
-      phase: phase.phase,
-      title: phase.title,
-      skills: phase.skills.filter((skill) => !existingLower.has(skill.toLowerCase())),
-    })).filter((phase) => phase.skills.length > 0);
+    return taxonomy.phases.map((phase) => {
+      const remainingSkills = phase.skills.filter((skill) => !existingLower.has(skill.toLowerCase()));
+      return {
+        phase: phase.phase,
+        title: phase.title,
+        skills: remainingSkills.length > 0 ? remainingSkills : phase.skills,
+      };
+    });
   }
 }
