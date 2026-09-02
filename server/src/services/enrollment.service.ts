@@ -7,7 +7,10 @@ import { AuditService } from './audit.service';
 
 export class EnrollmentService {
   static async enroll(studentId: string, courseId: string) {
-    const course = await Course.findById(courseId);
+    const course =
+      (courseId.match(/^[0-9a-fA-F]{24}$/) ? await Course.findById(courseId) : null) ||
+      (await Course.findOne({ slug: courseId }));
+
     if (!course || course.status !== 'PUBLISHED') {
       throw new AppError('Course not found or unavailable for enrollment.', 404, 'COURSE_UNAVAILABLE');
     }
@@ -16,14 +19,16 @@ export class EnrollmentService {
       throw new AppError('Course or workshop has reached maximum capacity.', 400, 'CAPACITY_REACHED');
     }
 
-    const existing = await Enrollment.findOne({ student: studentId, course: courseId });
+    const realCourseId = (course._id as any).toString();
+
+    const existing = await Enrollment.findOne({ student: studentId, course: realCourseId });
     if (existing) {
       throw new AppError('You are already enrolled in this course.', 409, 'ALREADY_ENROLLED');
     }
 
     const enrollment = await Enrollment.create({
       student: studentId,
-      course: courseId,
+      course: realCourseId,
       status: 'ACTIVE',
       progress: [],
       completedLessons: 0,
@@ -41,11 +46,11 @@ export class EnrollmentService {
       'Enrollment Successful',
       `You successfully enrolled in "${course.title}". Start learning now!`,
       'ENROLLMENT',
-      `/learn/${courseId}`
+      `/learn/${realCourseId}`
     );
 
     await AuditService.logAction(studentId, 'COURSE_ENROLLED', 'Enrollment', (enrollment._id as any).toString(), {
-      courseId,
+      courseId: realCourseId,
       courseTitle: course.title,
     });
 
@@ -88,7 +93,12 @@ export class EnrollmentService {
   }
 
   static async getEnrollmentByCourse(studentId: string, courseId: string) {
-    return Enrollment.findOne({ student: studentId, course: courseId }).lean();
+    const course =
+      (courseId.match(/^[0-9a-fA-F]{24}$/) ? await Course.findById(courseId) : null) ||
+      (await Course.findOne({ slug: courseId }));
+
+    if (!course) return null;
+    return Enrollment.findOne({ student: studentId, course: course._id }).lean();
   }
 
   /**
