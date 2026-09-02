@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { aiApi } from '../../api/aiApi';
 import { AIMentorHeader } from '../../components/ai/AIMentorHeader';
@@ -6,10 +6,11 @@ import { AIMentorEmptyState } from '../../components/ai/AIMentorEmptyState';
 import { SuggestedPromptChips } from '../../components/ai/SuggestedPromptChips';
 import { ChatMessageList, ChatMessage } from '../../components/ai/ChatMessageList';
 import { ChatComposer } from '../../components/ai/ChatComposer';
-import { motion } from 'framer-motion';
 
 export const AIMentorPage: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [promptInput, setPromptInput] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const aiMutation = useMutation({
     mutationFn: (prompt: string) => aiApi.chatMentor(prompt),
@@ -43,11 +44,22 @@ export const AIMentorPage: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    setPromptInput('');
     aiMutation.mutate(promptText);
+  };
+
+  const handleSelectSuggestedChip = (promptText: string) => {
+    setPromptInput(promptText);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+    }
   };
 
   const handleClearChat = () => {
     setMessages([]);
+    setPromptInput('');
   };
 
   return (
@@ -64,10 +76,16 @@ export const AIMentorPage: React.FC = () => {
         )}
 
         {/* Suggested Starter Chips */}
-        <SuggestedPromptChips onSelectPrompt={handleSendPrompt} />
+        <SuggestedPromptChips onSelectPrompt={handleSelectSuggestedChip} />
 
         {/* Composer Input */}
-        <ChatComposer onSendPrompt={handleSendPrompt} isPending={aiMutation.isPending} />
+        <ChatComposer
+          promptInput={promptInput}
+          setPromptInput={setPromptInput}
+          onSendPrompt={handleSendPrompt}
+          isPending={aiMutation.isPending}
+          textareaRef={textareaRef}
+        />
       </div>
     </div>
   );

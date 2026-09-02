@@ -81,17 +81,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ type }) => {
             <NavLink
               key={link.to}
               to={link.to}
-              end={link.to === '/dashboard' || link.to === '/instructor' || link.to === '/admin'}
+              end
               className={({ isActive }) =>
-                `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                `group relative flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-brand-600 text-white shadow-glow-blue'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900/80'
+                    ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white font-semibold shadow-glow-blue border-l-4 border-cyan-400 pl-3'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900/80 border-l-4 border-transparent'
                 }`
               }
             >
               <div className="flex items-center gap-3">
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
                 <span>{link.label}</span>
               </div>
               {link.badge && (

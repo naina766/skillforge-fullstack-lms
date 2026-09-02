@@ -6,6 +6,7 @@ export const courseBodySchema = z.object({
   description: z.string().min(20, 'Full description must be at least 20 characters'),
   type: z.enum(['COURSE', 'WORKSHOP', 'BOOTCAMP', 'WEBINAR']).optional().default('COURSE'),
   category: z.string().min(1, 'Category ID is required'),
+  status: z.enum(['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'ARCHIVED']).optional().default('DRAFT'),
   level: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ALL_LEVELS']).optional().default('ALL_LEVELS'),
   duration: z.number().min(0).optional().default(0),
   language: z.string().optional().default('English'),

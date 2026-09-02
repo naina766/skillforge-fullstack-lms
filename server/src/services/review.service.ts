@@ -59,6 +59,30 @@ export class ReviewService {
     return review;
   }
 
+  static async getAllReviews(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [reviews, total] = await Promise.all([
+      Review.find()
+        .populate('student', 'name email avatar')
+        .populate('course', 'title slug thumbnail')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Review.countDocuments(),
+    ]);
+
+    return {
+      reviews,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
   private static async recalculateCourseRating(courseId: string) {
     const stats = await Review.aggregate([
       { $match: { course: (Review as any).base.Types.ObjectId.createFromHexString(courseId), isModerated: true } },

@@ -269,7 +269,17 @@ export const Navbar: React.FC = () => {
                   </div>
                   <div className="hidden md:block">
                     <div className="text-xs font-bold text-slate-100 max-w-[100px] truncate">{user?.name}</div>
-                    <div className="text-[10px] font-semibold text-brand-400 uppercase">{user?.role}</div>
+                    <span
+                      className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider border ${
+                        user?.role === 'ADMIN'
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                          : user?.role === 'INSTRUCTOR'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : 'bg-brand-500/20 text-brand-300 border-brand-500/30'
+                      }`}
+                    >
+                      {user?.role}
+                    </span>
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400" />
                 </button>
@@ -280,9 +290,22 @@ export const Navbar: React.FC = () => {
                     className="absolute right-0 mt-2 w-56 rounded-2xl glass-panel border border-slate-800 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2"
                     onMouseLeave={() => setIsUserDropdownOpen(false)}
                   >
-                    <div className="px-4 py-2 border-b border-slate-800/60 mb-1">
-                      <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-                      <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                    <div className="px-4 py-2 border-b border-slate-800/60 mb-1 flex items-center justify-between">
+                      <div className="overflow-hidden">
+                        <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
+                        <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                      </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shrink-0 border ${
+                          user?.role === 'ADMIN'
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                            : user?.role === 'INSTRUCTOR'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : 'bg-brand-500/20 text-brand-300 border-brand-500/30'
+                        }`}
+                      >
+                        {user?.role}
+                      </span>
                     </div>
 
                     <Link

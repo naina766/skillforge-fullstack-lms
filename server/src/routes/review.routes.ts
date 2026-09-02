@@ -7,6 +7,7 @@ import { createReviewSchema } from '../validators/review.validator';
 
 const router = Router();
 
+router.get('/', authenticate, authorize('ADMIN'), ReviewController.getAllReviews);
 router.get('/course/:courseId', ReviewController.getCourseReviews);
 router.post('/course/:courseId', authenticate, validate(createReviewSchema), ReviewController.addReview);
 router.patch('/:id/moderate', authenticate, authorize('ADMIN'), ReviewController.moderateReview);

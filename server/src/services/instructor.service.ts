@@ -55,6 +55,29 @@ export class InstructorService {
 
     const completionRate = totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0;
 
+    // Monthly enrollment & revenue growth for this instructor
+    const monthlyGrowth = await Enrollment.aggregate([
+      { $match: { course: { $in: courseIds } } },
+      {
+        $lookup: {
+          from: 'courses',
+          localField: 'course',
+          foreignField: '_id',
+          as: 'courseDetails',
+        },
+      },
+      { $unwind: '$courseDetails' },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          students: { $sum: 1 },
+          revenue: { $sum: '$courseDetails.price' },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 6 },
+    ]);
+
     return {
       metrics: {
         totalCourses: courses.length,
@@ -63,6 +86,14 @@ export class InstructorService {
         averageRating,
         totalReviews,
         totalRevenue,
+      },
+      charts: {
+        monthlyGrowth: monthlyGrowth.map((g) => ({ month: g._id, students: g.students, revenue: g.revenue })),
+        courseRevenue: courses.map((c) => ({
+          title: c.title.length > 20 ? `${c.title.slice(0, 18)}...` : c.title,
+          revenue: (c.enrollmentCount || 0) * (c.price || 0),
+          students: c.enrollmentCount || 0,
+        })),
       },
       courses: courses.map((c) => ({
         id: (c._id as any).toString(),

@@ -14,6 +14,6 @@ router.get('/:id', CourseController.getCourseById);
 router.post('/', authenticate, authorize('INSTRUCTOR', 'ADMIN'), validate(createCourseSchema), CourseController.createCourse);
 router.patch('/:id', authenticate, authorize('INSTRUCTOR', 'ADMIN'), validate(updateCourseSchema), CourseController.updateCourse);
 router.delete('/:id', authenticate, authorize('INSTRUCTOR', 'ADMIN'), CourseController.deleteCourse);
-router.patch('/:id/status', authenticate, authorize('ADMIN'), CourseController.updateCourseStatus);
+router.patch('/:id/status', authenticate, authorize('INSTRUCTOR', 'ADMIN'), CourseController.updateCourseStatus);
 
 export default router;

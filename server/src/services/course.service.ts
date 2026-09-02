@@ -141,15 +141,19 @@ export class CourseService {
       slug = `${slug}-${Date.now().toString().slice(-4)}`;
     }
 
+    const initialStatus = (data.status as any) === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
+
     const course = await Course.create({
       ...data,
       slug,
       instructor: instructorId,
-      status: 'DRAFT',
+      status: initialStatus,
+      publishedAt: initialStatus === 'PUBLISHED' ? new Date() : undefined,
     });
 
     await AuditService.logAction(instructorId, 'COURSE_CREATED', 'Course', (course._id as any).toString(), {
       title: course.title,
+      status: course.status,
     });
 
     return course;
@@ -201,10 +205,14 @@ export class CourseService {
     });
   }
 
-  static async updateCourseStatus(courseId: string, status: CourseStatus, adminId: string) {
+  static async updateCourseStatus(courseId: string, status: CourseStatus, userId: string, isUserAdmin: boolean = false) {
     const course = await Course.findById(courseId);
     if (!course) {
       throw new AppError('Course not found.', 404, 'COURSE_NOT_FOUND');
+    }
+
+    if (!isUserAdmin && course.instructor.toString() !== userId) {
+      throw new AppError('You do not have permission to update status for this course.', 403, 'FORBIDDEN');
     }
 
     course.status = status;
@@ -214,7 +222,7 @@ export class CourseService {
 
     await course.save();
 
-    await AuditService.logAction(adminId, `COURSE_STATUS_${status}`, 'Course', courseId, {
+    await AuditService.logAction(userId, `COURSE_STATUS_${status}`, 'Course', courseId, {
       title: course.title,
       newStatus: status,
     });

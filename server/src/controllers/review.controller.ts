@@ -31,4 +31,19 @@ export class ReviewController {
       return next(error);
     }
   }
+
+  static async getAllReviews(req: Request, res: Response, next: NextFunction) {
+    try {
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      const result = await ReviewService.getAllReviews(page, limit);
+      return ApiResponse.paginated(res, result.reviews, {
+        ...result.pagination,
+        hasNextPage: page < result.pagination.totalPages,
+        hasPreviousPage: page > 1,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 }

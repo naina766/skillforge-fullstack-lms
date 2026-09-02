@@ -1,16 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { Send, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { motion } from 'framer-motion';
 
 interface ChatComposerProps {
+  promptInput?: string;
+  setPromptInput?: React.Dispatch<React.SetStateAction<string>>;
   onSendPrompt: (promptText: string) => void;
   isPending: boolean;
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
 }
 
-export const ChatComposer: React.FC<ChatComposerProps> = ({ onSendPrompt, isPending }) => {
-  const [promptInput, setPromptInput] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+export const ChatComposer: React.FC<ChatComposerProps> = ({
+  promptInput: externalPrompt,
+  setPromptInput: externalSetPrompt,
+  onSendPrompt,
+  isPending,
+  textareaRef: externalRef,
+}) => {
+  const [internalPrompt, setInternalPrompt] = React.useState('');
+  const promptInput = externalPrompt !== undefined ? externalPrompt : internalPrompt;
+  const setPromptInput = externalSetPrompt || setInternalPrompt;
+
+  const localRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = externalRef || localRef;
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -48,7 +61,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({ onSendPrompt, isPend
         <textarea
           ref={textareaRef}
           rows={2}
-          placeholder="Ask AI Career Mentor anything... (Press Enter to send, Shift+Enter for newline)"
+          placeholder="Ask AI Career Mentor anything... (e.g. 'I want to become a Senior Backend Engineer in 6 months')"
           value={promptInput}
           onChange={handleChange}
           onKeyDown={handleKeyDown}

@@ -75,7 +75,8 @@ export class CourseController {
   static async updateCourseStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { status } = req.body;
-      const course = await CourseService.updateCourseStatus(req.params.id, status, req.user!.userId);
+      const isUserAdmin = req.user!.role === 'ADMIN';
+      const course = await CourseService.updateCourseStatus(req.params.id, status, req.user!.userId, isUserAdmin);
       return ApiResponse.success(res, course, 200, `Course status updated to ${status}.`);
     } catch (error) {
       return next(error);

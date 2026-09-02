@@ -1,9 +1,14 @@
 import axiosClient from './axiosClient';
-import { Review, ApiResponse } from '../types';
+import { Review, ApiResponse, PaginatedResponse } from '../types';
 
 export const reviewApi = {
   getCourseReviews: async (courseId: string) => {
     const res = await axiosClient.get<ApiResponse<Review[]>>(`/reviews/course/${courseId}`);
+    return res.data;
+  },
+
+  getAllReviews: async (params?: { page?: number; limit?: number }) => {
+    const res = await axiosClient.get<PaginatedResponse<Review>>('/reviews', { params });
     return res.data;
   },
 

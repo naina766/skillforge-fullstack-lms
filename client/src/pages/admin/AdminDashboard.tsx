@@ -14,7 +14,8 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import { Users, BookOpen, DollarSign, Award, Shield } from 'lucide-react';
+import { Users, BookOpen, DollarSign, Award, Shield, Code2, ExternalLink } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 
 export const AdminDashboard: React.FC = () => {
   const { data: analyticsResponse, isLoading } = useQuery({
@@ -27,16 +28,24 @@ export const AdminDashboard: React.FC = () => {
   const charts = analytics?.charts;
 
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8">
+    <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8 w-full">
       <Sidebar type="admin" />
 
-      <main className="flex-1 space-y-8">
-        <div className="border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2">
-            <Shield className="w-6 h-6 text-rose-500" />
-            <h1 className="text-2xl font-bold text-white">Platform Admin Control Center</h1>
+      <main className="flex-1 min-w-0 space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Shield className="w-6 h-6 text-rose-500" />
+              <h1 className="text-2xl font-bold text-white">Platform Admin Control Center</h1>
+            </div>
+            <p className="text-xs text-slate-400">Monitor total revenue, active enrollments, user accounts, and security logs.</p>
           </div>
-          <p className="text-xs text-slate-400">Monitor total revenue, active enrollments, user accounts, and security logs.</p>
+
+          <a href="http://localhost:5000/api/docs" target="_blank" rel="noreferrer">
+            <Button variant="secondary" size="sm" leftIcon={<Code2 className="w-4 h-4 text-brand-400" />} rightIcon={<ExternalLink className="w-3.5 h-3.5 text-slate-400" />}>
+              Swagger API Docs
+            </Button>
+          </a>
         </div>
 
         {/* KPI Metrics Grid */}

@@ -26,12 +26,17 @@ import { NotificationsPage } from './pages/student/NotificationsPage';
 
 // Instructor Pages
 import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
+import { InstructorCoursesPage } from './pages/instructor/InstructorCoursesPage';
+import { InstructorAnalyticsPage } from './pages/instructor/InstructorAnalyticsPage';
 import { CourseEditorPage } from './pages/instructor/CourseEditorPage';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminAuditLogsPage } from './pages/admin/AdminAuditLogsPage';
+import { AdminCoursesPage } from './pages/admin/AdminCoursesPage';
+import { AdminCategoriesPage } from './pages/admin/AdminCategoriesPage';
+import { AdminReviewsPage } from './pages/admin/AdminReviewsPage';
 
 export default function App() {
   const { setUser } = useAuthStore();
@@ -50,10 +55,10 @@ export default function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col font-sans">
+      <div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col font-sans w-full overflow-x-hidden">
         <Navbar />
 
-        <div className="flex-1">
+        <div className="flex-1 w-full overflow-x-hidden">
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -80,7 +85,8 @@ export default function App() {
             {/* Protected Routes: Instructor & Admin */}
             <Route element={<ProtectedRoute allowedRoles={['INSTRUCTOR', 'ADMIN']} />}>
               <Route path="/instructor" element={<InstructorDashboard />} />
-              <Route path="/instructor/courses" element={<InstructorDashboard />} />
+              <Route path="/instructor/courses" element={<InstructorCoursesPage />} />
+              <Route path="/instructor/analytics" element={<InstructorAnalyticsPage />} />
               <Route path="/instructor/courses/create" element={<CourseEditorPage />} />
               <Route path="/instructor/courses/new" element={<CourseEditorPage />} />
               <Route path="/instructor/courses/:id/edit" element={<CourseEditorPage />} />
@@ -89,7 +95,10 @@ export default function App() {
             {/* Protected Routes: Admin Only */}
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/courses" element={<AdminCoursesPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/categories" element={<AdminCategoriesPage />} />
+              <Route path="/admin/reviews" element={<AdminReviewsPage />} />
               <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
             </Route>
 

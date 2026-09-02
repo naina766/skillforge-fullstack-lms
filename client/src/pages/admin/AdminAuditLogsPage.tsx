@@ -15,10 +15,10 @@ export const AdminAuditLogsPage: React.FC = () => {
   const logs = logsResponse?.data?.items || [];
 
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8">
+    <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8 w-full">
       <Sidebar type="admin" />
 
-      <main className="flex-1 space-y-6">
+      <main className="flex-1 min-w-0 space-y-6">
         <div className="border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-purple-400" />

@@ -8,6 +8,7 @@ export interface CourseQueryParamFilters {
   category?: string;
   level?: string;
   type?: string;
+  status?: string;
   minPrice?: number;
   maxPrice?: number;
   sort?: string;
@@ -21,6 +22,11 @@ export const courseApi = {
 
   getCourseBySlug: async (slug: string) => {
     const res = await axiosClient.get<ApiResponse<Course>>(`/courses/slug/${slug}`);
+    return res.data;
+  },
+
+  getCourseById: async (id: string) => {
+    const res = await axiosClient.get<ApiResponse<Course>>(`/courses/${id}`);
     return res.data;
   },
 

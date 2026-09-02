@@ -39,10 +39,10 @@ export const StudentDashboard: React.FC = () => {
   const continueCourse = activeEnrollments[0] || enrollments[0];
 
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8">
+    <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8 w-full">
       <Sidebar type="student" />
 
-      <main className="flex-1 space-y-8 overflow-hidden">
+      <main className="flex-1 min-w-0 space-y-8 overflow-hidden">
         {/* Welcome Banner */}
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 bg-gradient-to-r from-brand-950/60 via-dark-900 to-purple-950/40 relative overflow-hidden">
           <div className="relative z-10 space-y-2">

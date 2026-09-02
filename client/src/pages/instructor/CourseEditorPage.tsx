@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { courseApi } from '../../api/courseApi';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Button } from '../../components/ui/Button';
 import { useUIStore } from '../../store/useUIStore';
-import { Plus, Trash2, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+
+import { Module } from '../../types';
 
 export const CourseEditorPage: React.FC = () => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
+  const isEditMode = Boolean(id);
   const queryClient = useQueryClient();
   const { addToast } = useUIStore();
   const [step, setStep] = useState(1);
@@ -29,13 +33,13 @@ export const CourseEditorPage: React.FC = () => {
   const [capacity, setCapacity] = useState('100');
 
   // Curriculum State
-  const [modules, setModules] = useState([
+  const [modules, setModules] = useState<Module[]>([
     {
       title: 'Module 1: Introduction & Environment Setup',
       order: 1,
       lessons: [
-        { title: '1. Orientation & Project Overview', duration: 600, order: 1, isPreview: true, type: 'VIDEO' as const },
-        { title: '2. Workspace & Environment Configuration', duration: 1200, order: 2, isPreview: false, type: 'VIDEO' as const },
+        { title: '1. Orientation & Project Overview', duration: 600, order: 1, isPreview: true, type: 'VIDEO' },
+        { title: '2. Workspace & Environment Configuration', duration: 1200, order: 2, isPreview: false, type: 'VIDEO' },
       ],
     },
   ]);
@@ -52,21 +56,75 @@ export const CourseEditorPage: React.FC = () => {
 
   const categories = categoryData?.data || [];
 
-  React.useEffect(() => {
-    if (categories.length > 0 && !category) {
+  // Fetch course for editing
+  const { data: existingCourseData, isLoading: isLoadingCourse } = useQuery({
+    queryKey: ['course-edit', id],
+    queryFn: () => courseApi.getCourseById(id!),
+    enabled: isEditMode,
+  });
+
+  const existingCourse = existingCourseData?.data;
+
+  // Pre-fill form when existingCourse is loaded
+  useEffect(() => {
+    if (existingCourse) {
+      setTitle(existingCourse.title || '');
+      setShortDescription(existingCourse.shortDescription || '');
+      setDescription(existingCourse.description || '');
+      setType(existingCourse.type || 'COURSE');
+      const catId = typeof existingCourse.category === 'object' && existingCourse.category?._id
+        ? existingCourse.category._id
+        : typeof existingCourse.category === 'string'
+        ? existingCourse.category
+        : '';
+      setCategory(catId);
+      setLevel(existingCourse.level || 'BEGINNER');
+      setPrice(existingCourse.price !== undefined ? existingCourse.price.toString() : '0');
+      setThumbnail(existingCourse.thumbnail || '');
+      setStartDate(existingCourse.startDate ? new Date(existingCourse.startDate).toISOString().slice(0, 16) : '');
+      setMeetingUrl(existingCourse.meetingUrl || '');
+      setCapacity(existingCourse.capacity !== undefined ? existingCourse.capacity.toString() : '100');
+      if (existingCourse.curriculum && existingCourse.curriculum.length > 0) {
+        setModules(existingCourse.curriculum);
+      }
+      if (existingCourse.learningOutcomes && existingCourse.learningOutcomes.length > 0) {
+        setLearningOutcomes(existingCourse.learningOutcomes);
+      }
+    }
+  }, [existingCourse]);
+
+  useEffect(() => {
+    if (!isEditMode && categories.length > 0 && !category) {
       setCategory(categories[0]._id);
     }
-  }, [categories, category]);
+  }, [categories, category, isEditMode]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => courseApi.createCourse(data),
-    onSuccess: () => {
-      addToast('success', 'Course draft created successfully!');
+    onSuccess: (res: any) => {
+      const isPublished = res?.data?.status === 'PUBLISHED';
+      addToast('success', isPublished ? '🎉 Course published live successfully!' : 'Course draft saved successfully!');
       queryClient.invalidateQueries({ queryKey: ['instructor-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
       navigate('/instructor');
     },
     onError: (err: any) => {
       addToast('error', err.response?.data?.message || 'Failed to create course.');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => courseApi.updateCourse(id!, data),
+    onSuccess: (res: any) => {
+      const isPublished = res?.data?.status === 'PUBLISHED';
+      addToast('success', isPublished ? '🎉 Course updated and published live!' : 'Course updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['instructor-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course-edit', id] });
+      navigate('/instructor');
+    },
+    onError: (err: any) => {
+      addToast('error', err.response?.data?.message || 'Failed to update course.');
     },
   });
 
@@ -88,7 +146,7 @@ export const CourseEditorPage: React.FC = () => {
     }
   };
 
-  const handleSubmitCourse = () => {
+  const handleSubmitCourse = (publishDirectly: boolean = false) => {
     if (!title || !shortDescription || !description || !category) {
       addToast('error', 'Please fill in all required basic fields.');
       setStep(1);
@@ -102,6 +160,7 @@ export const CourseEditorPage: React.FC = () => {
       type,
       category,
       level,
+      status: publishDirectly ? 'PUBLISHED' : 'DRAFT',
       price: parseFloat(price) || 0,
       thumbnail,
       curriculum: modules,
@@ -110,8 +169,14 @@ export const CourseEditorPage: React.FC = () => {
       ...(type === 'WORKSHOP' ? { startDate, meetingUrl, capacity: parseInt(capacity, 10) } : {}),
     };
 
-    createMutation.mutate(payload);
+    if (isEditMode) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
   };
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8">
@@ -119,8 +184,14 @@ export const CourseEditorPage: React.FC = () => {
 
       <main className="flex-1 space-y-8 max-w-4xl">
         <div className="border-b border-slate-800 pb-4">
-          <h1 className="text-2xl font-bold text-white">Multi-Step Course Creation Wizard</h1>
-          <p className="text-xs text-slate-400">Step {step} of 5 — Author course specifications, pricing, and curriculum modules.</p>
+          <h1 className="text-2xl font-bold text-white">
+            {isEditMode ? `Edit Course: ${title || 'Loading...'}` : 'Multi-Step Course Creation Wizard'}
+          </h1>
+          <p className="text-xs text-slate-400">
+            {isEditMode
+              ? `Step ${step} of 5 — Update specifications, pricing, and curriculum modules.`
+              : `Step ${step} of 5 — Author course specifications, pricing, and curriculum modules.`}
+          </p>
         </div>
 
         {/* Step Indicator Bar */}
@@ -149,39 +220,55 @@ export const CourseEditorPage: React.FC = () => {
 
         {/* Step 1: Basic Info */}
         {step === 1 && (
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
-            <h2 className="text-lg font-bold text-white mb-4">Step 1: Course Basic Information</h2>
+          <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-5">
+            <h2 className="text-lg font-bold text-white mb-2">Step 1: Course Basic Information</h2>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">Course Title *</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300">Course Title *</label>
+                <span className="text-[10px] text-slate-500 font-mono">Required</span>
+              </div>
               <input
                 type="text"
                 placeholder="e.g. Master Production Node.js & Microservices"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-xl px-4 py-2.5"
+                className={`w-full bg-slate-900 border ${!title.trim() && step > 1 ? 'border-rose-500' : 'border-slate-800 focus:border-brand-500'} text-slate-200 text-sm rounded-xl px-4 py-2.5 transition-all`}
               />
+              {/* Real-time slug generation preview */}
+              <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1 pt-0.5">
+                <span className="text-slate-500">Live URL Slug:</span>
+                <span className="text-cyan-400 font-semibold">
+                  /courses/{title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : 'your-course-slug'}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">Short Description *</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300">Short Description (Tagline) *</label>
+                <span className="text-[10px] text-slate-500 font-mono">Required</span>
+              </div>
               <input
                 type="text"
-                placeholder="Brief 1-2 sentence tagline..."
+                placeholder="Brief 1-2 sentence compelling summary for catalog cards..."
                 value={shortDescription}
                 onChange={(e) => setShortDescription(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-xl px-4 py-2.5"
+                className="w-full bg-slate-900 border border-slate-800 focus:border-brand-500 text-slate-200 text-sm rounded-xl px-4 py-2.5 transition-all"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">Full Description *</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300">Full Curriculum Description *</label>
+                <span className="text-[10px] text-slate-500 font-mono">Required (min 20 chars)</span>
+              </div>
               <textarea
                 rows={4}
-                placeholder="Detailed curriculum overview and prerequisites..."
+                placeholder="Detailed curriculum overview, prerequisites, target audience, and architecture..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-xl p-4"
+                className="w-full bg-slate-900 border border-slate-800 focus:border-brand-500 text-slate-200 text-sm rounded-xl p-4 transition-all"
               />
             </div>
 
@@ -345,15 +432,27 @@ export const CourseEditorPage: React.FC = () => {
               <p><strong>Modules:</strong> {modules.length} modules configured</p>
             </div>
 
-            <Button
-              variant="primary"
-              size="lg"
-              className="w-full"
-              isLoading={createMutation.isPending}
-              onClick={handleSubmitCourse}
-            >
-              Create Course Draft
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Button
+                variant="primary"
+                size="lg"
+                className="flex-1 shadow-glow-blue"
+                isLoading={isSaving}
+                onClick={() => handleSubmitCourse(true)}
+                leftIcon={<CheckCircle2 className="w-5 h-5" />}
+              >
+                {isEditMode ? 'Update & Publish Live' : 'Publish Course Live'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex-1"
+                isLoading={isSaving}
+                onClick={() => handleSubmitCourse(false)}
+              >
+                {isEditMode ? 'Save Changes as Draft' : 'Save as Draft'}
+              </Button>
+            </div>
           </div>
         )}
 

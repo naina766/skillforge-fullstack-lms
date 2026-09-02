@@ -10,6 +10,10 @@ export interface InstructorAnalyticsData {
     totalReviews: number;
     totalRevenue: number;
   };
+  charts?: {
+    monthlyGrowth: Array<{ month: string; students: number; revenue: number }>;
+    courseRevenue: Array<{ title: string; revenue: number; students: number }>;
+  };
   courses: Array<{
     id: string;
     title: string;
