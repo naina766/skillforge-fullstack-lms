@@ -53,6 +53,7 @@ export const env = {
   MAX_VIDEO_SIZE_MB: parseInt(process.env.MAX_VIDEO_SIZE_MB || '500', 10), // 500 MB max
   AI_PROVIDER: process.env.AI_PROVIDER || 'gemini',
   AI_API_KEY: process.env.AI_API_KEY || '',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
   SEED_ADMIN_PASSWORD: process.env.SEED_ADMIN_PASSWORD || 'Admin@123456',
   SEED_INSTRUCTOR_PASSWORD: process.env.SEED_INSTRUCTOR_PASSWORD || 'Instructor@123456',
   SEED_STUDENT_PASSWORD: process.env.SEED_STUDENT_PASSWORD || 'Student@123456',
