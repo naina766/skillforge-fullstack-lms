@@ -26,20 +26,23 @@
 - **Security Defenses:** Built-in prompt injection defense, off-topic question redirect, and Zod output schema validation.
 
 ### 🎓 Student Experience
-- **Faceted Course Discovery:** Real-time search, category navigation, multi-filter by level (`BEGINNER`, `INTERMEDIATE`, `ADVANCED`) and format (`COURSE`, `WORKSHOP`, `BOOTCAMP`, `WEBINAR`), pricing sliders, and server-side pagination.
+- **Faceted Course Discovery:** Real-time search with regex injection defense, category navigation, multi-filter by level (`BEGINNER`, `INTERMEDIATE`, `ADVANCED`) and format (`COURSE`, `WORKSHOP`, `BOOTCAMP`, `WEBINAR`), pricing sliders, and server-side pagination.
+- **Server-Side Content Access Control:** Public endpoints expose only preview lessons and safe metadata. Non-preview lesson media identifiers (`youtubeVideoId`, `cloudinaryPublicId`, `cloudinaryUrl`, `videoUrl`, `resources`) are sanitized server-side and accessible only to enrolled learners, course instructors, and administrators.
 - **Interactive Learning Player:** Video frame, modular lesson checklist, real-time completion percentage tracking, and automatic certificate generation at 100% progress.
-- **Verifiable Digital Credentials:** Cryptographically verifiable SHA-256 certificate IDs (e.g. `SF-2026-23FA59`) with public verification portal.
+- **Cryptographically Verifiable Digital Certificates:** Deterministic HMAC-SHA256 tamper-proof verification using timing-safe comparison (`crypto.timingSafeEqual`) and a public verification portal with student privacy protection.
 - **Student Dashboard:** Enrolled courses, active progress tracking, wishlist bookmarking, and notification inbox.
 
 ### 👨‍🏫 Instructor Studio
-- **5-Step Course Creation Wizard:** Basic info, pricing & workshop scheduling, curriculum builder with modules/lessons, learning outcomes, and SEO publishing review.
-- **Instructor Analytics:** Revenue earnings, total student enrollments, completion rates, and average course ratings.
+- **5-Step Course Creation Wizard:** Basic info, pricing & workshop scheduling, curriculum builder with modules/lessons, learning outcomes, and course lifecycle management.
+- **Self-Publishing Lifecycle:** Instructors manage their own courses across `DRAFT`, `PUBLISHED`, and `ARCHIVED` states with immediate author ownership verification.
+- **Instructor Analytics:** Revenue earnings, total student enrollments, completion rates, and average course ratings computed through database aggregations.
 
 ### 🛡️ Admin Control Panel & Production Hardening
-- **Platform Analytics:** Real-time KPI metrics and Recharts visualizations for student growth and category distribution.
-- **User & Moderation Controls:** User management, role privilege toggles (`STUDENT`, `INSTRUCTOR`, `ADMIN`), course publish review pipeline, review moderation, and security audit log inspection.
-- **Production Hardening:** Helmet HTTP security headers (HSTS, nosniff, CORS), multi-tier rate limiting (global, auth, AI), and NoSQL injection query sanitization.
+- **Platform Analytics:** Real-time database-backed KPI metrics and Recharts visualizations for student growth and category distribution.
+- **User & Moderation Controls:** User management, role privilege toggles (`STUDENT`, `INSTRUCTOR`, `ADMIN`), course catalog status oversight, review moderation, and security audit log inspection.
+- **Production Hardening:** Helmet HTTP security headers with explicit Content Security Policy (CSP), multi-tier rate limiting (global, auth, AI), NoSQL injection sanitization, and regex search escaping.
 - **Hardened Authentication Lifecycle:** Memory-only JWT access tokens (never stored in `localStorage`) paired with secure HttpOnly SameSite refresh cookies, cryptographic session token rotation, and fail-fast production secret validation.
+- **Production Seed Guard:** Database seeding is guarded against accidental execution in production; running demo seeds requires explicit `ALLOW_DEMO_SEED=true` opt-in.
 
 
 ---
@@ -131,7 +134,7 @@ docker compose exec server npm run seed
 
 ## 🧪 Automated Test Suite
 
-All 77 automated unit and integration tests pass cleanly across backend and frontend workspaces:
+All 93 automated unit and integration tests pass cleanly across backend and frontend workspaces:
 
 ```bash
 # Run backend API integration tests (Vitest + Supertest)
@@ -143,7 +146,8 @@ cd ../client
 npm test
 ```
 
-### Verified Test Suite Breakdown (77/77 Passed)
+### Verified Test Suite Breakdown (93/93 Passed)
+- **`server/tests/securityHardening.test.ts` (16/16 passed)** — Public curriculum sanitization (stripping non-preview media and resources for unauthenticated and non-enrolled requests), author and admin full access verification, unpublished draft protection, deterministic HMAC-SHA256 certificate verification with `timingSafeEqual`, student email privacy on public verify, regex metacharacter escaping and ReDoS protection, oversized query/prompt rejection, and configurable `GEMINI_MODEL` validation.
 - **`server/tests/rbac.test.ts` (14/14 passed)** — RBAC boundaries, course ownership, lesson curriculum membership validation (`INVALID_LESSON`), private certificate isolation, admin self-demotion/deactivation prevention, and media upload signing authorization.
 - **`server/tests/review.test.ts` (12/12 passed)** — Enrollment prerequisites, 1-5 star bounds, unique review constraints, dynamic rating distribution recalculation, and owner-only deletion.
 - **`server/tests/video.test.ts` (9/9 passed)** — Multi-pattern YouTube parsing, duration/size bounds (15 min / 500 MB), and Cloudinary signature generation.
@@ -152,4 +156,5 @@ npm test
 - **`server/tests/auth.test.ts` (4/4 passed)** — Registration, bcrypt authentication, in-memory access token issuance, and HttpOnly refresh cookie rotation.
 - **`server/tests/course.test.ts` (2/2 passed)** — Catalog pagination, filtering, and public endpoints.
 - **`client/src/tests/` (16/16 passed)** — StarRating, ReviewCard, CourseRatingSummary, ReviewForm, CourseCard, and AIMessageRenderer component tests.
+
 
