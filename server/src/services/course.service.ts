@@ -1,7 +1,9 @@
 import { Course, ICourse, CourseStatus, CourseType } from '../models/Course';
 import { Category } from '../models/Category';
+import { Enrollment } from '../models/Enrollment';
 import { AppError } from '../utils/appError';
 import { createSlug } from '../utils/slugify';
+import { escapeRegex } from '../utils/sanitize';
 import { AuditService } from './audit.service';
 
 export interface CourseQueryFilters {
@@ -18,6 +20,27 @@ export interface CourseQueryFilters {
 }
 
 export class CourseService {
+  private static sanitizeCurriculumForGuest(curriculum: any[]) {
+    if (!curriculum || !Array.isArray(curriculum)) return [];
+    return curriculum.map((module) => ({
+      ...module,
+      lessons: (module.lessons || []).map((lesson: any) => {
+        if (lesson.isPreview) {
+          return lesson;
+        }
+        const {
+          youtubeVideoId,
+          cloudinaryPublicId,
+          cloudinaryUrl,
+          videoUrl,
+          resources,
+          ...safeLesson
+        } = lesson;
+        return safeLesson;
+      }),
+    }));
+  }
+
   static async getCourses(filters: CourseQueryFilters) {
     const page = filters.page && filters.page > 0 ? filters.page : 1;
     const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 50) : 12;
@@ -72,7 +95,8 @@ export class CourseService {
     }
 
     if (filters.search && filters.search.trim()) {
-      const searchRegex = new RegExp(filters.search.trim(), 'i');
+      const safeSearch = escapeRegex(filters.search.trim());
+      const searchRegex = new RegExp(safeSearch, 'i');
       query.$or = [{ title: searchRegex }, { shortDescription: searchRegex }, { skills: searchRegex }];
     }
 
@@ -99,6 +123,7 @@ export class CourseService {
 
     const [items, total] = await Promise.all([
       Course.find(query)
+        .select('-curriculum')
         .populate('category', 'name slug icon')
         .populate('instructor', 'name avatar bio')
         .sort(sortOptions)
@@ -123,7 +148,7 @@ export class CourseService {
     };
   }
 
-  static async getCourseBySlug(slug: string) {
+  static async getCourseBySlug(slug: string, user?: { userId: string; role: string }) {
     const course = await Course.findOne({ slug })
       .populate('category', 'name slug icon description')
       .populate('instructor', 'name avatar bio skills')
@@ -133,10 +158,33 @@ export class CourseService {
       throw new AppError('Course not found.', 404, 'COURSE_NOT_FOUND');
     }
 
+    const instructorId = (course.instructor as any)?._id?.toString() || (course.instructor as any)?.toString();
+    const isInstructor = !!(user?.userId && instructorId === user.userId);
+    const isAdmin = user?.role === 'ADMIN';
+
+    if (course.status !== 'PUBLISHED' && !isInstructor && !isAdmin) {
+      throw new AppError('Course not found.', 404, 'COURSE_NOT_FOUND');
+    }
+
+    let isEnrolled = false;
+    if (user?.userId && !isInstructor && !isAdmin) {
+      isEnrolled = !!(await Enrollment.exists({
+        student: user.userId,
+        course: course._id,
+        status: { $ne: 'CANCELLED' },
+      }));
+    }
+
+    const hasFullAccess = isAdmin || isInstructor || isEnrolled;
+
+    if (!hasFullAccess && course.curriculum) {
+      course.curriculum = this.sanitizeCurriculumForGuest(course.curriculum);
+    }
+
     return course;
   }
 
-  static async getCourseById(id: string) {
+  static async getCourseById(id: string, user?: { userId: string; role: string }) {
     const course = await Course.findById(id)
       .populate('category', 'name slug icon')
       .populate('instructor', 'name avatar bio')
@@ -144,6 +192,29 @@ export class CourseService {
 
     if (!course) {
       throw new AppError('Course not found.', 404, 'COURSE_NOT_FOUND');
+    }
+
+    const instructorId = (course.instructor as any)?._id?.toString() || (course.instructor as any)?.toString();
+    const isInstructor = !!(user?.userId && instructorId === user.userId);
+    const isAdmin = user?.role === 'ADMIN';
+
+    if (course.status !== 'PUBLISHED' && !isInstructor && !isAdmin) {
+      throw new AppError('Course not found.', 404, 'COURSE_NOT_FOUND');
+    }
+
+    let isEnrolled = false;
+    if (user?.userId && !isInstructor && !isAdmin) {
+      isEnrolled = !!(await Enrollment.exists({
+        student: user.userId,
+        course: course._id,
+        status: { $ne: 'CANCELLED' },
+      }));
+    }
+
+    const hasFullAccess = isAdmin || isInstructor || isEnrolled;
+
+    if (!hasFullAccess && course.curriculum) {
+      course.curriculum = this.sanitizeCurriculumForGuest(course.curriculum);
     }
 
     return course;

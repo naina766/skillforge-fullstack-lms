@@ -29,3 +29,24 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     return ApiResponse.error(res, 'Invalid or expired access token.', 401, 'UNAUTHORIZED');
   }
 };
+
+export const optionalAuthenticate = async (req: Request, _res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const payload = verifyAccessToken(token);
+      const user = await User.findById(payload.userId).select('isActive role email name');
+      if (user && user.isActive) {
+        req.user = {
+          userId: (user._id as any).toString(),
+          email: user.email,
+          role: user.role,
+        };
+      }
+    }
+  } catch (error) {
+    // Non-fatal: treat request as unauthenticated if token verification fails
+  }
+  return next();
+};

@@ -27,7 +27,7 @@ export class CourseController {
 
   static async getCourseBySlug(req: Request, res: Response, next: NextFunction) {
     try {
-      const course = await CourseService.getCourseBySlug(req.params.slug);
+      const course = await CourseService.getCourseBySlug(req.params.slug, req.user);
       return ApiResponse.success(res, course);
     } catch (error) {
       return next(error);
@@ -36,7 +36,7 @@ export class CourseController {
 
   static async getCourseById(req: Request, res: Response, next: NextFunction) {
     try {
-      const course = await CourseService.getCourseById(req.params.id);
+      const course = await CourseService.getCourseById(req.params.id, req.user);
       return ApiResponse.success(res, course);
     } catch (error) {
       return next(error);
