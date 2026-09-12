@@ -61,6 +61,13 @@ export interface ICourse extends Document {
   enrollmentCount: number;
   rating: number;
   reviewCount: number;
+  ratingDistribution?: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
   status: CourseStatus;
   publishedAt?: Date;
   createdAt: Date;
@@ -191,6 +198,13 @@ const courseSchema = new Schema<ICourse>(
     enrollmentCount: { type: Number, default: 0 },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0 },
+    ratingDistribution: {
+      '1': { type: Number, default: 0 },
+      '2': { type: Number, default: 0 },
+      '3': { type: Number, default: 0 },
+      '4': { type: Number, default: 0 },
+      '5': { type: Number, default: 0 },
+    },
     status: {
       type: String,
       enum: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'ARCHIVED'],

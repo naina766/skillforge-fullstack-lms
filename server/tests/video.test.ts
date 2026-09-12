@@ -42,16 +42,21 @@ describe('Video Learning Engine - Unit & Integration Tests', () => {
     });
   });
 
-  describe('Cloudinary Direct Upload Signing', () => {
-    it('should fail explicitly with CLOUDINARY_NOT_CONFIGURED if credentials are not configured', () => {
-      // In local default test environment where credentials are empty
-      try {
-        const sig = VideoService.generateCloudinarySignature();
-        expect(sig).toBeDefined();
-        expect(sig.signature).toBeDefined();
-      } catch (err: any) {
-        expect(err.code).toBe('CLOUDINARY_NOT_CONFIGURED');
-      }
+  describe('Short Video Duration & Size Policy (15 min / 500MB)', () => {
+    it('should accept valid short lesson video under 15 minutes (900s)', () => {
+      expect(() => VideoService.validateVideoUploadMetadata(300, 50 * 1024 * 1024)).not.toThrow();
+      expect(() => VideoService.validateVideoUploadMetadata(899, 499 * 1024 * 1024)).not.toThrow();
+      expect(() => VideoService.validateVideoUploadMetadata(900, 500 * 1024 * 1024)).not.toThrow();
+    });
+
+    it('should reject long videos exceeding 15 minutes (e.g., 1-hour / 3600s video)', () => {
+      expect(() => VideoService.validateVideoUploadMetadata(3600)).toThrow(AppError);
+      expect(() => VideoService.validateVideoUploadMetadata(901)).toThrow(AppError);
+    });
+
+    it('should reject oversized video files exceeding 500MB', () => {
+      const over500MB = 501 * 1024 * 1024;
+      expect(() => VideoService.validateVideoUploadMetadata(300, over500MB)).toThrow(AppError);
     });
   });
 });

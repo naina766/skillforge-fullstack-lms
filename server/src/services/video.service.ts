@@ -81,4 +81,33 @@ export class VideoService {
       thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
     };
   }
+
+  /**
+   * Validates uploaded video duration and size according to platform policy (Max 15 min / 900s, 500MB).
+   */
+  static validateVideoUploadMetadata(durationSeconds?: number, fileSizeBytes?: number) {
+    const maxDuration = env.MAX_VIDEO_DURATION_SECONDS; // 900s
+    const maxSize = env.MAX_VIDEO_SIZE_MB * 1024 * 1024; // 500MB
+
+    if (durationSeconds !== undefined && durationSeconds > maxDuration) {
+      throw new AppError(
+        `Video duration exceeds maximum allowed lesson length of ${Math.round(maxDuration / 60)} minutes (${durationSeconds}s > ${maxDuration}s). Please upload a concise educational lesson.`,
+        400,
+        'VIDEO_EXCEEDS_MAX_DURATION'
+      );
+    }
+
+    if (fileSizeBytes !== undefined && fileSizeBytes > maxSize) {
+      throw new AppError(
+        `Video file size exceeds maximum allowed limit of ${env.MAX_VIDEO_SIZE_MB} MB.`,
+        400,
+        'VIDEO_EXCEEDS_MAX_SIZE'
+      );
+    }
+
+    return {
+      maxDurationSeconds: maxDuration,
+      maxSizeMB: env.MAX_VIDEO_SIZE_MB,
+    };
+  }
 }

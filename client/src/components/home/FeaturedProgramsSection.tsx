@@ -37,7 +37,7 @@ export const getProgramIllustration = (course: Course): string => {
 
   // 1. Generative AI & LLMs
   if (titleLower.includes('generative ai') || titleLower.includes('llm') || titleLower.includes('gemini')) {
-    return 'https://images.unsplash.com/photo-1677442136019-21780efad99a?w=800&auto=format&fit=crop&q=80';
+    return 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&auto=format&fit=crop&q=80';
   }
   // 2. Node.js & Microservices
   if (titleLower.includes('node.js') || titleLower.includes('microservices')) {

@@ -7,6 +7,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { CourseImage } from '../../components/course/CourseImage';
 import {
   PlayCircle,
   Award,
@@ -188,8 +189,8 @@ export const MyLearningPage: React.FC = () => {
                 className="glass-panel p-5 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-xl bg-slate-900 overflow-hidden shrink-0 border border-slate-800">
-                    <img src={item.course.thumbnail} alt={item.course.title} className="w-full h-full object-cover" />
+                  <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-slate-800">
+                    <CourseImage course={item.course} aspectRatio="aspect-square" className="w-20 h-20" />
                   </div>
 
                   <div className="space-y-1.5">
@@ -215,7 +216,10 @@ export const MyLearningPage: React.FC = () => {
                       </Button>
                     </Link>
                   ) : (
-                    <Link to={`/learn/${item.course._id}`} className="block">
+                    <Link
+                      to={`/learn/${item.course?._id || item.course?.slug || (item.course as any)}`}
+                      className="block"
+                    >
                       <Button variant="primary" size="sm" className="w-full shadow-glow-blue" leftIcon={<PlayCircle className="w-4 h-4" />}>
                         Continue Learning
                       </Button>

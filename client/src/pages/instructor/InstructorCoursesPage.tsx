@@ -30,6 +30,8 @@ export const InstructorCoursesPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   const { data: analyticsResponse, isLoading } = useQuery({
     queryKey: ['instructor-analytics'],
@@ -51,12 +53,47 @@ export const InstructorCoursesPage: React.FC = () => {
     },
   });
 
-  const filteredCourses = courses.filter((c) => {
+  const filteredCourses = courses.filter((c: any) => {
     const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = !statusFilter || c.status === statusFilter;
     const matchesType = !typeFilter || c.type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
   });
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedCourseIds(filteredCourses.map((c: any) => c.id));
+    } else {
+      setSelectedCourseIds([]);
+    }
+  };
+
+  const handleSelectOne = (courseId: string) => {
+    setSelectedCourseIds((prev) =>
+      prev.includes(courseId) ? prev.filter((id) => id !== courseId) : [...prev, courseId]
+    );
+  };
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    if (selectedCourseIds.length === 0) return;
+    setIsBulkProcessing(true);
+    try {
+      await Promise.all(
+        selectedCourseIds.map((id) => courseApi.updateCourseStatus(id, newStatus))
+      );
+      addToast('success', `Successfully updated ${selectedCourseIds.length} authored courses to ${newStatus}.`);
+      setSelectedCourseIds([]);
+      queryClient.invalidateQueries({ queryKey: ['instructor-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
+    } catch (err: any) {
+      addToast('error', err.response?.data?.message || 'Bulk status update encountered an error.');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const isAllSelected = filteredCourses.length > 0 && selectedCourseIds.length === filteredCourses.length;
+  const isPartiallySelected = selectedCourseIds.length > 0 && selectedCourseIds.length < filteredCourses.length;
 
   return (
     <div className="flex min-h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-8 w-full">
@@ -151,6 +188,47 @@ export const InstructorCoursesPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Bulk Actions Floating Bar */}
+        {selectedCourseIds.length > 0 && (
+          <div className="glass-panel p-3.5 rounded-2xl border border-brand-500/40 bg-slate-900/95 flex flex-wrap items-center justify-between gap-3 shadow-glow-blue animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white px-2.5 py-1 rounded-lg bg-brand-500/20 text-brand-300 border border-brand-500/30">
+                {selectedCourseIds.length} selected
+              </span>
+              <span className="text-xs text-slate-300">Choose a bulk course action:</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleBulkStatusChange('PUBLISHED')}
+                isLoading={isBulkProcessing}
+                leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+              >
+                Publish All
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleBulkStatusChange('DRAFT')}
+                isLoading={isBulkProcessing}
+                leftIcon={<FileEdit className="w-3.5 h-3.5" />}
+              >
+                Set to Draft
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedCourseIds([])}
+                disabled={isBulkProcessing}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Courses Table / Enhanced Empty State */}
         {isLoading ? (
           <Skeleton className="h-64 w-full rounded-2xl" />
@@ -208,10 +286,21 @@ export const InstructorCoursesPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="glass-panel rounded-2xl border border-slate-800 overflow-x-auto shadow-md">
+          <div className="glass-panel rounded-2xl border border-slate-800 overflow-x-auto shadow-xl">
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
                 <tr>
+                  <th className="p-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isPartiallySelected;
+                      }}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-brand-600 focus:ring-brand-500 focus:ring-offset-slate-900 cursor-pointer"
+                    />
+                  </th>
                   <th className="p-4">Course Program</th>
                   <th className="p-4">Type</th>
                   <th className="p-4">Tuition</th>
@@ -222,96 +311,112 @@ export const InstructorCoursesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 font-sans">
-                {filteredCourses.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="p-4 max-w-xs">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={c.thumbnail || 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80'}
-                          alt={c.title}
-                          className="w-11 h-11 rounded-xl object-cover bg-slate-900 shrink-0 border border-slate-800"
+                {filteredCourses.map((c: any) => {
+                  const isSelected = selectedCourseIds.includes(c.id);
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`transition-colors ${
+                        isSelected ? 'bg-brand-500/10 hover:bg-brand-500/15' : 'hover:bg-slate-900/50'
+                      }`}
+                    >
+                      <td className="p-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleSelectOne(c.id)}
+                          className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-brand-600 focus:ring-brand-500 focus:ring-offset-slate-900 cursor-pointer"
                         />
-                        <div className="truncate">
-                          <Link
-                            to={`/courses/${c.slug}`}
-                            target="_blank"
-                            className="font-bold text-white hover:text-brand-300 transition-colors flex items-center gap-1"
-                          >
-                            <span className="truncate">{c.title}</span>
-                            <ExternalLink className="w-3 h-3 text-slate-500 shrink-0" />
-                          </Link>
-                          <span className="text-[10px] text-slate-400 font-mono">ID: {c.id.slice(-6)}</span>
+                      </td>
+                      <td className="p-4 max-w-xs">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={c.thumbnail || 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80'}
+                            alt={c.title}
+                            className="w-11 h-11 rounded-xl object-cover bg-slate-900 shrink-0 border border-slate-800"
+                          />
+                          <div className="truncate">
+                            <Link
+                              to={`/courses/${c.slug}`}
+                              target="_blank"
+                              className="font-bold text-white hover:text-brand-300 transition-colors flex items-center gap-1"
+                            >
+                              <span className="truncate">{c.title}</span>
+                              <ExternalLink className="w-3 h-3 text-slate-500 shrink-0" />
+                            </Link>
+                            <span className="text-[10px] text-slate-400 font-mono">ID: {c.id.slice(-6)}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant={c.type === 'WORKSHOP' ? 'cyan' : c.type === 'BOOTCAMP' ? 'purple' : 'blue'}>
-                        {c.type}
-                      </Badge>
-                    </td>
-                    <td className="p-4 font-bold text-slate-100">
-                      {c.price === 0 ? <span className="text-emerald-400 font-extrabold">Free</span> : `$${c.price}`}
-                    </td>
-                    <td className="p-4 text-slate-300">
-                      <div className="flex items-center gap-1 font-medium">
-                        <Users className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{c.students || 0}</span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-1 text-amber-400 font-bold">
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        <span>{c.rating || 0}</span>
-                        <span className="text-[10px] text-slate-500 font-normal">({c.reviewCount || 0})</span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <Badge
-                        variant={
-                          c.status === 'PUBLISHED'
-                            ? 'emerald'
-                            : c.status === 'PENDING_REVIEW'
-                            ? 'amber'
-                            : c.status === 'ARCHIVED'
-                            ? 'rose'
-                            : 'gray'
-                        }
-                      >
-                        {c.status}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="inline-flex items-center gap-1.5 justify-end">
-                        <Link to={`/instructor/courses/${c.id}/edit`}>
-                          <Button variant="ghost" size="sm" leftIcon={<FileEdit className="w-3.5 h-3.5" />}>
-                            Edit
-                          </Button>
-                        </Link>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={c.type === 'WORKSHOP' ? 'cyan' : c.type === 'BOOTCAMP' ? 'purple' : 'blue'}>
+                          {c.type}
+                        </Badge>
+                      </td>
+                      <td className="p-4 font-bold text-slate-100">
+                        {c.price === 0 ? <span className="text-emerald-400 font-extrabold">Free</span> : `$${c.price}`}
+                      </td>
+                      <td className="p-4 text-slate-300">
+                        <div className="flex items-center gap-1 font-medium">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{c.students || 0}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1 text-amber-400 font-bold">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          <span>{c.rating || 0}</span>
+                          <span className="text-[10px] text-slate-500 font-normal">({c.reviewCount || 0})</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <Badge
+                          variant={
+                            c.status === 'PUBLISHED'
+                              ? 'emerald'
+                              : c.status === 'PENDING_REVIEW'
+                              ? 'amber'
+                              : c.status === 'ARCHIVED'
+                              ? 'rose'
+                              : 'gray'
+                          }
+                        >
+                          {c.status}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <Link to={`/instructor/courses/${c.id}/edit`}>
+                            <Button variant="ghost" size="sm" leftIcon={<FileEdit className="w-3.5 h-3.5" />}>
+                              Edit
+                            </Button>
+                          </Link>
 
-                        {c.status !== 'PUBLISHED' ? (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => updateStatusMutation.mutate({ id: c.id, status: 'PUBLISHED' })}
-                            isLoading={updateStatusMutation.isPending && updateStatusMutation.variables?.id === c.id}
-                            leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                          >
-                            Publish
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => updateStatusMutation.mutate({ id: c.id, status: 'DRAFT' })}
-                            isLoading={updateStatusMutation.isPending && updateStatusMutation.variables?.id === c.id}
-                          >
-                            Unpublish
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {c.status !== 'PUBLISHED' ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => updateStatusMutation.mutate({ id: c.id, status: 'PUBLISHED' })}
+                              isLoading={updateStatusMutation.isPending && updateStatusMutation.variables?.id === c.id}
+                              leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                            >
+                              Publish
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => updateStatusMutation.mutate({ id: c.id, status: 'DRAFT' })}
+                              isLoading={updateStatusMutation.isPending && updateStatusMutation.variables?.id === c.id}
+                            >
+                              Unpublish
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

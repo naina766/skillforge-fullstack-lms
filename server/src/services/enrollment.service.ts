@@ -103,14 +103,15 @@ export class EnrollmentService {
 
   /**
    * Records throttled video playback progress. Automatically marks the lesson completed
-   * and recalculates course progress when watched threshold >= 90%.
+   * and recalculates course progress ONLY when the video reaches the actual END (100%).
    */
   static async updateVideoProgress(
     enrollmentId: string,
     studentId: string,
     lessonId: string,
     watchedSeconds: number,
-    duration: number
+    duration: number,
+    isEnded = false
   ) {
     const enrollment = await Enrollment.findOne({ _id: enrollmentId, student: studentId });
     if (!enrollment) {
@@ -129,8 +130,12 @@ export class EnrollmentService {
     if (totalLessonsCount === 0) totalLessonsCount = 1;
 
     const safeDuration = duration > 0 ? duration : 1;
-    const progressPercent = Math.min(100, Math.round((watchedSeconds / safeDuration) * 100));
-    const isCompleted = progressPercent >= 90;
+    const progressPercent = isEnded
+      ? 100
+      : Math.min(100, Math.round((watchedSeconds / safeDuration) * 100));
+
+    // Strict 100% / End of Video completion rule (NO 90% threshold)
+    const isCompleted = isEnded === true || (watchedSeconds >= safeDuration && safeDuration > 10);
 
     // Update lesson progress array
     const progressList = enrollment.lessonProgress || [];
@@ -142,6 +147,7 @@ export class EnrollmentService {
       progressList[existingIndex].progressPercent = Math.max(progressList[existingIndex].progressPercent, progressPercent);
       if (isCompleted) {
         progressList[existingIndex].completed = true;
+        progressList[existingIndex].progressPercent = 100;
       }
       progressList[existingIndex].lastWatchedAt = new Date();
     } else {
@@ -149,7 +155,7 @@ export class EnrollmentService {
         lessonId,
         watchedSeconds,
         duration: safeDuration,
-        progressPercent,
+        progressPercent: isCompleted ? 100 : progressPercent,
         completed: isCompleted,
         lastWatchedAt: new Date(),
       });

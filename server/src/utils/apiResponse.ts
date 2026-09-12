@@ -18,12 +18,13 @@ export class ApiResponse {
     });
   }
 
-  static paginated<T>(res: Response, items: T[], pagination: PaginationMeta, statusCode = 200) {
+  static paginated<T>(res: Response, items: T[], pagination: PaginationMeta, extraData?: Record<string, any>, statusCode = 200) {
     return res.status(statusCode).json({
       success: true,
       data: {
         items,
         pagination,
+        ...(extraData ? { ...extraData } : {}),
       },
     });
   }

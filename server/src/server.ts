@@ -1,13 +1,18 @@
+import { createServer } from 'http';
 import app from './app';
 import { env } from './config/env';
 import { connectDB } from './config/db';
 import { logger } from './config/logger';
+import { initSocket } from './config/socket';
 
 const startServer = async () => {
   try {
     await connectDB();
 
-    const server = app.listen(env.PORT, () => {
+    const httpServer = createServer(app);
+    initSocket(httpServer);
+
+    const server = httpServer.listen(env.PORT, () => {
       logger.info(`SkillForge Server running in ${env.NODE_ENV} mode on port ${env.PORT}`);
     });
 

@@ -32,6 +32,7 @@ pino.log
 # IDE, OS & System metadata
 .vscode/
 .idea/
+.agent/
 .DS_Store
 Thumbs.db
 *.swp

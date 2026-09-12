@@ -7,11 +7,11 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowRight,
-  RotateCcw,
   Film,
   FileText,
   AlertCircle,
   Clock,
+  Loader2,
 } from 'lucide-react';
 
 interface VideoLessonPlayerProps {
@@ -19,9 +19,16 @@ interface VideoLessonPlayerProps {
   courseTitle?: string;
   initialPosition?: number;
   isCompleted?: boolean;
-  onProgressUpdate: (watchedSeconds: number, duration: number) => void;
+  onProgressUpdate: (watchedSeconds: number, duration: number, isEnded?: boolean) => void;
   onNextLesson?: () => void;
   hasNextLesson?: boolean;
+}
+
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
 }
 
 export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
@@ -33,26 +40,53 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
   onNextLesson,
   hasNextLesson = false,
 }) => {
-  const [currentSeconds, setCurrentSeconds] = useState(initialPosition);
-  const [videoDuration, setVideoDuration] = useState(lesson.duration || 0);
   const [hasCompletedLocally, setHasCompletedLocally] = useState(isCompleted);
+  const [localProgressPercent, setLocalProgressPercent] = useState<number>(isCompleted ? 100 : 0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [isBuffering, setIsBuffering] = useState(false);
 
+  // Diagnostic render logging
+  useEffect(() => {
+    console.log(`[VIDEO] render: ${lesson.title} (${lesson._id})`);
+  });
+
+  // Keep parent callback stable in ref to prevent effect re-triggers
+  const onProgressUpdateRef = useRef(onProgressUpdate);
+  useEffect(() => {
+    onProgressUpdateRef.current = onProgressUpdate;
+  }, [onProgressUpdate]);
+
+  // Playback refs to isolate rapid time updates and prevent React component re-renders
   const videoRef = useRef<HTMLVideoElement>(null);
+  const ytPlayerRef = useRef<any>(null);
+  const ytContainerId = useRef<string>(`yt-player-container-${Math.random().toString(36).substring(2, 9)}`);
+  const initialPositionRef = useRef<number>(initialPosition);
+  const currentTimeRef = useRef<number>(initialPosition);
+  const durationRef = useRef<number>(lesson.duration || 600);
   const lastReportedTimeRef = useRef<number>(0);
+  const hasRestoredPositionRef = useRef<boolean>(false);
+  const hasReportedCompletionRef = useRef<boolean>(isCompleted);
+  const periodicSyncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync completion state from props
   useEffect(() => {
     setHasCompletedLocally(isCompleted);
-  }, [isCompleted, lesson._id]);
+    hasReportedCompletionRef.current = isCompleted;
+    if (isCompleted) setLocalProgressPercent(100);
+  }, [isCompleted]);
 
-  // Reset playback position on lesson change
+  // Reset playback lifecycle ONLY on lesson change
   useEffect(() => {
-    setCurrentSeconds(initialPosition);
-    setVideoDuration(lesson.duration || 0);
-    setPlaybackError(null);
+    hasRestoredPositionRef.current = false;
+    hasReportedCompletionRef.current = isCompleted;
     lastReportedTimeRef.current = 0;
-  }, [lesson._id, initialPosition, lesson.duration]);
+    initialPositionRef.current = initialPosition;
+    currentTimeRef.current = initialPosition;
+    durationRef.current = lesson.duration || 600;
+    setPlaybackError(null);
+    setIsBuffering(false);
+    if (!isCompleted) setLocalProgressPercent(0);
+  }, [lesson._id]);
 
   // Extract YouTube ID
   const getYouTubeId = useCallback((): string | null => {
@@ -68,69 +102,185 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
 
   const youtubeId = getYouTubeId();
   const isYouTube = lesson.videoSource === 'YOUTUBE' || Boolean(youtubeId);
-  const isCloudinary = lesson.videoSource === 'CLOUDINARY' || (!isYouTube && Boolean(lesson.cloudinaryUrl || lesson.videoUrl));
+  const isCloudinary =
+    lesson.videoSource === 'CLOUDINARY' || (!isYouTube && Boolean(lesson.cloudinaryUrl || lesson.videoUrl));
 
-  // Progress reporter (throttled every 5 seconds)
-  const reportProgress = useCallback(
-    (seconds: number, duration: number) => {
-      if (duration <= 0) return;
-      const now = Math.floor(seconds);
+  // Idempotent Completion Trigger (100% / END of Video)
+  const triggerLessonEnded = useCallback(() => {
+    if (hasReportedCompletionRef.current) return;
+    hasReportedCompletionRef.current = true;
 
-      // Throttled: report every 5s or at 90% threshold
-      if (Math.abs(now - lastReportedTimeRef.current) >= 5 || (now / duration >= 0.9 && !hasCompletedLocally)) {
-        lastReportedTimeRef.current = now;
-        onProgressUpdate(now, duration);
+    const finalDur = Math.max(1, Math.floor(durationRef.current));
+    console.log(`[VIDEO] ended: ${lesson.title} (${finalDur}s)`);
+    setHasCompletedLocally(true);
+    setLocalProgressPercent(100);
+    lastReportedTimeRef.current = finalDur;
+    onProgressUpdateRef.current(finalDur, finalDur, true);
+  }, [lesson.title]);
 
-        if (now / duration >= 0.9 && !hasCompletedLocally) {
-          setHasCompletedLocally(true);
-        }
-      }
-    },
-    [hasCompletedLocally, onProgressUpdate]
-  );
+  // Throttled Background Progress Reporter (every 5–10 seconds)
+  const reportPeriodicProgress = useCallback(() => {
+    if (hasReportedCompletionRef.current) return;
 
-  // YouTube simulation progress timer (since embedded iframes without postMessage API track elapsed time)
+    const cur = Math.floor(currentTimeRef.current);
+    const dur = Math.max(1, Math.floor(durationRef.current));
+
+    if (dur <= 0) return;
+
+    // Only report if time has progressed by at least 5 seconds
+    if (Math.abs(cur - lastReportedTimeRef.current) >= 5) {
+      lastReportedTimeRef.current = cur;
+      const percent = Math.min(99, Math.round((cur / dur) * 100));
+      console.log(`[VIDEO] progress persisted: ${cur}s / ${dur}s (${percent}%)`);
+      setLocalProgressPercent(percent);
+      onProgressUpdateRef.current(cur, dur, false);
+    }
+  }, []);
+
+  // 1. YouTube IFrame API Lifecycle
   useEffect(() => {
     if (!isYouTube || !youtubeId) return;
 
-    const estimatedDuration = lesson.duration > 0 ? lesson.duration : 600; // Default 10 min
-    setVideoDuration(estimatedDuration);
+    let isMounted = true;
 
-    const interval = setInterval(() => {
-      setCurrentSeconds((prev) => {
-        const next = Math.min(estimatedDuration, prev + 1);
-        reportProgress(next, estimatedDuration);
-        return next;
+    const initYT = () => {
+      if (!window.YT || !window.YT.Player) return;
+
+      if (ytPlayerRef.current) {
+        try {
+          console.log(`[VIDEO] player destroyed: ${lesson.title}`);
+          ytPlayerRef.current.destroy();
+        } catch {
+          // ignore
+        }
+      }
+
+      const container = document.getElementById(ytContainerId.current);
+      if (!container || !isMounted) return;
+
+      console.log(`[VIDEO] player created: ${lesson.title} (ID: ${youtubeId})`);
+      ytPlayerRef.current = new window.YT.Player(ytContainerId.current, {
+        videoId: youtubeId,
+        playerVars: {
+          autoplay: 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+          origin: typeof window !== 'undefined' ? window.location.origin : '',
+        },
+        events: {
+          onReady: (event: any) => {
+            if (!isMounted) return;
+            const dur = event.target.getDuration();
+            if (dur && dur > 0) durationRef.current = dur;
+
+            // Restore position ONCE on player ready
+            if (initialPositionRef.current > 0 && !hasRestoredPositionRef.current) {
+              hasRestoredPositionRef.current = true;
+              event.target.seekTo(initialPositionRef.current, true);
+            }
+          },
+          onStateChange: (event: any) => {
+            if (!isMounted) return;
+
+            // YouTube Player States:
+            // 0: ENDED, 1: PLAYING, 2: PAUSED, 3: BUFFERING, 5: CUED
+            if (event.data === 0) {
+              triggerLessonEnded();
+            } else if (event.data === 3) {
+              setIsBuffering(true);
+            } else if (event.data === 1) {
+              setIsBuffering(false);
+            }
+          },
+          onError: () => {
+            if (isMounted) setPlaybackError('This YouTube video stream is currently unavailable.');
+          },
+        },
       });
-    }, 1000);
+    };
 
-    return () => clearInterval(interval);
-  }, [isYouTube, youtubeId, lesson.duration, reportProgress]);
+    // Load YouTube API script if not present
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      window.onYouTubeIframeAPIReady = initYT;
+      document.body.appendChild(tag);
+    } else {
+      initYT();
+    }
 
-  // HTML5 / Cloudinary video event handlers
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    const currentTime = videoRef.current.currentTime;
-    const duration = videoRef.current.duration || lesson.duration || 1;
+    // Quiet background timer every 5 seconds to sync YouTube playback position without UI re-renders
+    periodicSyncIntervalRef.current = setInterval(() => {
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
+        try {
+          const state = ytPlayerRef.current.getPlayerState();
+          if (state === 1) {
+            // Playing
+            currentTimeRef.current = ytPlayerRef.current.getCurrentTime() || 0;
+            const dur = ytPlayerRef.current.getDuration();
+            if (dur && dur > 0) durationRef.current = dur;
+            reportPeriodicProgress();
+          }
+        } catch {
+          // Player not yet initialized
+        }
+      }
+    }, 5000);
 
-    setCurrentSeconds(currentTime);
-    setVideoDuration(duration);
-    reportProgress(currentTime, duration);
-  };
+    return () => {
+      isMounted = false;
+      if (periodicSyncIntervalRef.current) clearInterval(periodicSyncIntervalRef.current);
+      if (ytPlayerRef.current) {
+        try {
+          console.log(`[VIDEO] player destroyed: ${lesson.title}`);
+          ytPlayerRef.current.destroy();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [lesson._id, youtubeId, isYouTube, triggerLessonEnded, reportPeriodicProgress]);
+
+  // 2. HTML5 / Cloudinary Lifecycle
+  useEffect(() => {
+    if (isYouTube) return;
+
+    // Periodic background sync for HTML5 video
+    periodicSyncIntervalRef.current = setInterval(() => {
+      if (videoRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+        currentTimeRef.current = videoRef.current.currentTime;
+        reportPeriodicProgress();
+      }
+    }, 5000);
+
+    return () => {
+      if (periodicSyncIntervalRef.current) clearInterval(periodicSyncIntervalRef.current);
+    };
+  }, [lesson._id, isYouTube, reportPeriodicProgress]);
 
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return;
-    const duration = videoRef.current.duration;
-    if (duration && !isNaN(duration)) {
-      setVideoDuration(duration);
-    }
-    if (initialPosition > 0 && initialPosition < (duration || 99999)) {
-      videoRef.current.currentTime = initialPosition;
+    const dur = videoRef.current.duration || lesson.duration || 1;
+    durationRef.current = dur;
+
+    // Restore position ONCE on metadata ready
+    if (initialPositionRef.current > 0 && initialPositionRef.current < dur && !hasRestoredPositionRef.current) {
+      hasRestoredPositionRef.current = true;
+      videoRef.current.currentTime = initialPositionRef.current;
     }
   };
 
-  const progressPercent =
-    videoDuration > 0 ? Math.min(100, Math.round((currentSeconds / videoDuration) * 100)) : 0;
+  const handleTimeUpdate = () => {
+    if (!videoRef.current) return;
+    // Store in ref to avoid re-rendering entire component on every microsecond
+    currentTimeRef.current = videoRef.current.currentTime;
+  };
+
+  const handleVideoEnded = () => {
+    triggerLessonEnded();
+  };
 
   // Render non-video lesson (e.g. ARTICLE or QUIZ)
   if (lesson.type === 'ARTICLE' || lesson.type === 'QUIZ') {
@@ -171,8 +321,7 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
               variant={hasCompletedLocally ? 'outline' : 'primary'}
               size="sm"
               onClick={() => {
-                setHasCompletedLocally(true);
-                onProgressUpdate(lesson.duration || 300, lesson.duration || 300);
+                triggerLessonEnded();
               }}
               leftIcon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
             >
@@ -192,24 +341,24 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Video Viewport */}
+      {/* 16:9 Aspect Video Viewport with Smooth Cinema Mount */}
       <div className="relative w-full aspect-video rounded-3xl bg-slate-950 border border-slate-800/90 overflow-hidden shadow-2xl group">
         {isYouTube && youtubeId ? (
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1&playsinline=1&start=${Math.floor(initialPosition)}`}
-            title={lesson.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="w-full h-full border-0"
-          />
+          <div className="w-full h-full">
+            <div id={ytContainerId.current} className="w-full h-full" />
+          </div>
         ) : isCloudinary && (lesson.cloudinaryUrl || lesson.videoUrl) ? (
           <video
             ref={videoRef}
             src={lesson.cloudinaryUrl || lesson.videoUrl}
             controls
             playsInline
+            preload="metadata"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
+            onEnded={handleVideoEnded}
+            onWaiting={() => setIsBuffering(true)}
+            onPlaying={() => setIsBuffering(false)}
             onError={() => setPlaybackError('Failed to load video stream from Cloudinary storage.')}
             className="w-full h-full object-contain bg-black"
           />
@@ -217,15 +366,23 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
           <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
             <Film className="w-12 h-12 text-slate-600" />
             <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white">Video Source Processing</h4>
+              <h4 className="text-sm font-bold text-white">Video Stream Initializing</h4>
               <p className="text-xs text-slate-400 max-w-sm">
-                This lesson is waiting for video stream transcoding or a valid YouTube / Cloudinary URL.
+                This lesson is loading media stream metadata. Please wait...
               </p>
             </div>
           </div>
         )}
 
-        {/* Error Overlay if any */}
+        {/* Buffering Indicator */}
+        {isBuffering && (
+          <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/70 backdrop-blur-sm border border-slate-700 text-white text-[11px] font-semibold flex items-center gap-1.5 shadow-md pointer-events-none">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+            <span>Buffering...</span>
+          </div>
+        )}
+
+        {/* Playback Error Overlay */}
         {playbackError && (
           <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 space-y-3">
             <AlertCircle className="w-10 h-10 text-rose-400" />
@@ -234,7 +391,7 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
         )}
       </div>
 
-      {/* Progress & Completion Feedback Banner */}
+      {/* Progress & Real-Time Completion Strip */}
       <div className="glass-panel p-4 rounded-2xl border border-slate-800/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="relative w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
@@ -248,48 +405,34 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-white">
-                {hasCompletedLocally ? 'Lesson Completed' : 'Watching Lesson'}
+                {hasCompletedLocally ? '✓ Lesson Completed' : 'Watching Lesson'}
               </span>
               <Badge variant={hasCompletedLocally ? 'emerald' : 'cyan'} size="sm">
-                {progressPercent}%
+                {localProgressPercent}%
               </Badge>
               <Badge variant="gray" size="sm">
-                {isYouTube ? 'YouTube Source' : 'Cloudinary HD'}
+                {isYouTube ? 'YouTube HD' : 'Cloudinary Video'}
               </Badge>
             </div>
             <p className="text-[11px] text-slate-400">
               {hasCompletedLocally
-                ? 'Great job! 90%+ completed. Your course progress has been saved.'
-                : 'Progress automatically updates every few seconds. Reach 90% to mark complete.'}
+                ? 'Great work! You reached the end of this lesson. Course progress is saved.'
+                : 'Watch to the very end of the video (100%) to automatically mark complete.'}
             </p>
           </div>
         </div>
 
-        {/* Action Button */}
+        {/* Next Lesson Action */}
         <div className="flex items-center gap-2 shrink-0">
-          {!hasCompletedLocally && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setHasCompletedLocally(true);
-                onProgressUpdate(videoDuration || 300, videoDuration || 300);
-              }}
-              leftIcon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-            >
-              Mark Complete
-            </Button>
-          )}
-
-          {hasNextLesson && onNextLesson && (
+          {hasCompletedLocally && hasNextLesson && onNextLesson && (
             <Button
               variant="primary"
               size="sm"
               onClick={onNextLesson}
-              className="shadow-glow-blue"
+              className="shadow-glow-blue animate-pulse"
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Next Lesson
+              Start Next Lesson
             </Button>
           )}
         </div>

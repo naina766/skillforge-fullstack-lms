@@ -5,6 +5,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { notificationApi } from '../../api/notificationApi';
 import { courseApi } from '../../api/courseApi';
 import { useQuery } from '@tanstack/react-query';
+import { CourseImage } from '../course/CourseImage';
 import {
   Sparkles,
   Search,
@@ -168,14 +169,8 @@ export const Navbar: React.FC = () => {
                       onClick={() => handleSelectCourse(course.slug)}
                       className="w-full p-3 flex items-center gap-3 hover:bg-brand-500/10 transition-colors text-left group"
                     >
-                      <div className="w-11 h-11 rounded-lg bg-slate-800 overflow-hidden shrink-0 border border-slate-700/60">
-                        {course.thumbnail ? (
-                          <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-brand-400">
-                            <Layers className="w-4 h-4" />
-                          </div>
-                        )}
+                      <div className="w-11 h-11 rounded-lg overflow-hidden shrink-0 border border-slate-700/60">
+                        <CourseImage course={course} aspectRatio="aspect-square" className="w-11 h-11" />
                       </div>
 
                       <div className="flex-1 min-w-0">

@@ -21,7 +21,8 @@ export const enrollmentApi = {
     id: string,
     lessonId: string,
     watchedSeconds: number,
-    duration: number
+    duration: number,
+    isEnded = false
   ) => {
     const res = await axiosClient.patch<
       ApiResponse<{
@@ -34,6 +35,7 @@ export const enrollmentApi = {
       lessonId,
       watchedSeconds,
       duration,
+      isEnded,
     });
     return res.data;
   },

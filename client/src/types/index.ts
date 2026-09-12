@@ -6,6 +6,7 @@ export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 
 export interface User {
   id: string;
+  _id?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -82,6 +83,14 @@ export interface Course {
   enrollmentCount: number;
   rating: number;
   reviewCount: number;
+  ratingDistribution?: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+    [key: string]: number | undefined;
+  };
   status: CourseStatus;
   publishedAt?: string;
   createdAt: string;
@@ -116,12 +125,26 @@ export interface Enrollment {
 
 export interface Review {
   _id: string;
-  course: string;
+  course: string | Course;
   student: User;
   rating: number;
-  comment: string;
+  comment?: string;
   isModerated: boolean;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface RatingSummary {
+  ratingAverage: number;
+  ratingCount: number;
+  ratingDistribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+    [key: string]: number;
+  };
 }
 
 export interface CareerAssessment {

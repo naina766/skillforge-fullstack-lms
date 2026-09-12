@@ -4,7 +4,7 @@ export interface IReview extends Document {
   course: Types.ObjectId;
   student: Types.ObjectId;
   rating: number;
-  comment: string;
+  comment?: string;
   isModerated: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -32,7 +32,7 @@ const reviewSchema = new Schema<IReview>(
     },
     comment: {
       type: String,
-      required: [true, 'Review comment is required'],
+      default: '',
       trim: true,
       maxlength: [1000, 'Comment cannot exceed 1000 characters'],
     },

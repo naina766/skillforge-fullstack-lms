@@ -117,6 +117,9 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
     }
   };
 
+  const MAX_DURATION_SECONDS = 900; // 15 minutes max
+  const MAX_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB max
+
   // 2. Direct Signed Cloudinary Upload Flow
   const handleUploadFile = async () => {
     if (!uploadFile) {
@@ -124,9 +127,9 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
       return;
     }
 
-    // 100MB limit check
-    if (uploadFile.size > 100 * 1024 * 1024) {
-      addToast('error', 'Video file exceeds 100MB size limit.');
+    // 500MB limit check
+    if (uploadFile.size > MAX_SIZE_BYTES) {
+      addToast('error', 'Video file exceeds maximum allowed limit of 500 MB.');
       return;
     }
 
@@ -134,11 +137,32 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
       setIsUploading(true);
       setUploadProgress(0);
 
+      // Pre-validate video duration client-side
+      const duration = await new Promise<number>((resolve) => {
+        const tempVideo = document.createElement('video');
+        tempVideo.preload = 'metadata';
+        tempVideo.src = URL.createObjectURL(uploadFile);
+        tempVideo.onloadedmetadata = () => {
+          URL.revokeObjectURL(tempVideo.src);
+          resolve(tempVideo.duration || 0);
+        };
+        tempVideo.onerror = () => resolve(0);
+      });
+
+      if (duration > MAX_DURATION_SECONDS) {
+        setIsUploading(false);
+        addToast(
+          'error',
+          `Video is too long (${Math.round(duration / 60)} minutes). Maximum lesson duration is 15 minutes.`
+        );
+        return;
+      }
+
       // Step 1: Request signed signature from backend
       const sigRes = await videoApi.getUploadSignature('skillforge/instructor-uploads');
       const sigData = sigRes.data;
 
-      // Step 2: Direct upload to Cloudinary
+      // Step 2: Direct upload to Cloudinary CDN
       const formData = new FormData();
       formData.append('file', uploadFile);
       formData.append('api_key', sigData.apiKey);
@@ -156,6 +180,16 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
       });
 
       const result = cloudinaryRes.data;
+      const actualDuration = Math.round(result.duration || duration || 300);
+
+      if (actualDuration > MAX_DURATION_SECONDS) {
+        addToast(
+          'error',
+          `Uploaded video exceeds 15 minutes limit (${Math.round(actualDuration / 60)} min). Upload rejected.`
+        );
+        return;
+      }
+
       setUploadedUrl(result.secure_url);
 
       onVideoConfigured({
@@ -164,16 +198,18 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
         cloudinaryPublicId: result.public_id,
         cloudinaryUrl: result.secure_url,
         videoUrl: result.secure_url,
-        duration: Math.round(result.duration || 300),
+        duration: actualDuration,
       });
 
-      addToast('success', 'Video successfully uploaded and configured for lesson.');
+        addToast('success', 'Video successfully uploaded and configured for lesson.');
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message ||
+      const cloudinaryError =
         err.response?.data?.error?.message ||
-        'Failed to upload video to Cloudinary. Check server credentials.';
-      addToast('error', msg);
+        err.response?.data?.message ||
+        (err.response?.status === 403
+          ? 'Cloudinary 403: Invalid Cloudinary credentials/signature or upload permissions. Please check server CLOUDINARY configuration.'
+          : 'Failed to upload video to Cloudinary.');
+      addToast('error', cloudinaryError);
     } finally {
       setIsUploading(false);
     }
@@ -192,7 +228,7 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
       if (liveVideoRef.current) {
         liveVideoRef.current.srcObject = stream;
       }
-    } catch (err: any) {
+    } catch {
       setRecordingError('Camera or microphone permission denied. Please allow access.');
       addToast('error', 'Camera or microphone access denied.');
     }
@@ -237,9 +273,16 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
       setRecordedVideoUrl(null);
 
       timerRef.current = setInterval(() => {
-        setRecordSeconds((s) => s + 1);
+        setRecordSeconds((s) => {
+          const next = s + 1;
+          if (next >= MAX_DURATION_SECONDS) {
+            handleStopRecording();
+            addToast('info', 'Maximum lesson duration reached (15 minutes). Recording stopped.');
+          }
+          return next;
+        });
       }, 1000);
-    } catch (err) {
+    } catch {
       addToast('error', 'Failed to start browser media recorder.');
     }
   };
@@ -315,11 +358,13 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
 
       addToast('success', 'Recorded video uploaded and assigned to lesson!');
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message ||
+      const cloudinaryError =
         err.response?.data?.error?.message ||
-        'Failed to upload recording to Cloudinary.';
-      addToast('error', msg);
+        err.response?.data?.message ||
+        (err.response?.status === 403
+          ? 'Cloudinary 403: Invalid Cloudinary credentials/signature or upload permissions. Please check server CLOUDINARY configuration.'
+          : 'Failed to upload recording to Cloudinary.');
+      addToast('error', cloudinaryError);
     } finally {
       setIsUploading(false);
     }
@@ -454,8 +499,14 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
                 <span className="text-xs font-bold text-white truncate block">{uploadFile.name}</span>
                 <span className="text-[10px] text-slate-400">{(uploadFile.size / (1024 * 1024)).toFixed(2)} MB</span>
               </div>
-              <Button type="button" variant="primary" size="sm" onClick={handleUploadFile}>
-                Upload to Cloudinary
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handleUploadFile}
+                leftIcon={<UploadCloud className="w-3.5 h-3.5" />}
+              >
+                Upload
               </Button>
             </div>
           )}
@@ -585,7 +636,7 @@ export const LessonVideoManager: React.FC<LessonVideoManagerProps> = ({
                   isLoading={isUploading}
                   leftIcon={<UploadCloud className="w-4 h-4" />}
                 >
-                  Confirm & Upload to Cloudinary
+                  Confirm & Upload
                 </Button>
               </div>
             </div>

@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { CourseCard } from '../../components/course/CourseCard';
+import { CourseImage } from '../../components/course/CourseImage';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Button } from '../../components/ui/Button';
 import { BookOpen, Award, Sparkles, PlayCircle, Clock, CheckCircle } from 'lucide-react';
@@ -105,8 +106,8 @@ export const StudentDashboard: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl bg-slate-900 overflow-hidden shrink-0">
-                <img src={continueCourse.course.thumbnail} alt={continueCourse.course.title} className="w-full h-full object-cover" />
+              <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0">
+                <CourseImage course={continueCourse.course} aspectRatio="aspect-square" className="w-16 h-16" />
               </div>
               <div className="flex-1 space-y-2">
                 <h3 className="text-base font-bold text-white leading-snug">{continueCourse.course.title}</h3>

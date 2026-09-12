@@ -32,22 +32,37 @@ export class CourseService {
       query.status = 'PUBLISHED';
     }
 
-    if (filters.category) {
+    if (
+      filters.category &&
+      filters.category.trim() &&
+      !['ALL', 'all', 'all-categories'].includes(filters.category.trim())
+    ) {
       // Find category by slug or id
       const cat = await Category.findOne({
-        $or: [{ _id: filters.category.match(/^[0-9a-fA-F]{24}$/) ? filters.category : null }, { slug: filters.category }],
+        $or: [
+          { _id: filters.category.match(/^[0-9a-fA-F]{24}$/) ? filters.category : null },
+          { slug: filters.category.trim() },
+        ],
       });
       if (cat) {
         query.category = cat._id;
       }
     }
 
-    if (filters.level) {
-      query.level = filters.level;
+    if (
+      filters.level &&
+      filters.level.trim() &&
+      !['ALL', 'ALL_LEVELS', 'all'].includes(filters.level.trim().toUpperCase())
+    ) {
+      query.level = filters.level.trim().toUpperCase();
     }
 
-    if (filters.type) {
-      query.type = filters.type;
+    if (
+      filters.type &&
+      filters.type.trim() &&
+      !['ALL', 'all'].includes(filters.type.trim().toUpperCase())
+    ) {
+      query.type = filters.type.trim().toUpperCase();
     }
 
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
