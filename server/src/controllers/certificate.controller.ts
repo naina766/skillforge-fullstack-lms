@@ -24,13 +24,10 @@ export class CertificateController {
 
   static async verifyCertificate(req: Request, res: Response, next: NextFunction) {
     try {
-      const cert = await CertificateService.getCertificate(req.params.certId);
-      return ApiResponse.success(res, {
-        isValid: true,
-        certificate: cert,
-      });
+      const verification = await CertificateService.verifyCertificate(req.params.certId);
+      return ApiResponse.success(res, verification);
     } catch (error) {
-      return ApiResponse.error(res, 'Invalid or unrecognized certificate ID.', 404, 'CERTIFICATE_INVALID');
+      return next(error);
     }
   }
 
