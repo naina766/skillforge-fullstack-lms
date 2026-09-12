@@ -15,7 +15,17 @@ const app: Application = express();
 // Security Headers with Helmet
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Allows Swagger UI and embedded media
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        imgSrc: ["'self'", 'data:', 'https:', 'http:'],
+        frameSrc: ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'],
+        mediaSrc: ["'self'", 'https://res.cloudinary.com', 'https:', 'blob:'],
+        connectSrc: ["'self'", 'https://generativelanguage.googleapis.com', 'https://api.cloudinary.com', env.CLIENT_URL],
+      },
+    },
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     hsts: {

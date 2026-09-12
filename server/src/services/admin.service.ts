@@ -4,6 +4,7 @@ import { Enrollment } from '../models/Enrollment';
 import { Review } from '../models/Review';
 import { AuditLog } from '../models/AuditLog';
 import { AppError } from '../utils/appError';
+import { escapeRegex } from '../utils/sanitize';
 import { AuditService } from './audit.service';
 
 export class AdminService {
@@ -113,7 +114,8 @@ export class AdminService {
       query.role = role;
     }
     if (search) {
-      const searchRegex = new RegExp(search.trim(), 'i');
+      const safeSearch = escapeRegex(search.trim());
+      const searchRegex = new RegExp(safeSearch, 'i');
       query.$or = [{ name: searchRegex }, { email: searchRegex }];
     }
 
