@@ -218,8 +218,10 @@ const courseSchema = new Schema<ICourse>(
   }
 );
 
-// Indexes
+// Optimized Query Indexes
 courseSchema.index({ category: 1, status: 1 });
+courseSchema.index({ instructor: 1, status: 1 });
+courseSchema.index({ status: 1, createdAt: -1 });
 courseSchema.index({ title: 'text', description: 'text', skills: 'text' });
 
 export const Course = model<ICourse>('Course', courseSchema);

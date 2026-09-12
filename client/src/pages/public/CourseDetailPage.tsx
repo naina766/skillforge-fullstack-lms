@@ -64,6 +64,8 @@ export const CourseDetailPage: React.FC = () => {
       addToast('success', 'Enrolled successfully! Redirecting to learning player...');
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
       queryClient.invalidateQueries({ queryKey: ['enrollment-check', course?._id] });
+      queryClient.invalidateQueries({ queryKey: ['course', course?.slug] });
+      queryClient.invalidateQueries({ queryKey: ['student-dashboard'] });
       navigate(`/learn/${res.data.course}`);
     },
     onError: (err: any) => {

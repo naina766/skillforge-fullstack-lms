@@ -45,11 +45,6 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
 
-  // Diagnostic render logging
-  useEffect(() => {
-    console.log(`[VIDEO] render: ${lesson.title} (${lesson._id})`);
-  });
-
   // Keep parent callback stable in ref to prevent effect re-triggers
   const onProgressUpdateRef = useRef(onProgressUpdate);
   useEffect(() => {

@@ -39,19 +39,49 @@ import { AdminCategoriesPage } from './pages/admin/AdminCategoriesPage';
 import { AdminReviewsPage } from './pages/admin/AdminReviewsPage';
 
 export default function App() {
-  const { setUser } = useAuthStore();
+  const { setAccessToken, setUser, setInitializing, logout } = useAuthStore();
 
   useEffect(() => {
-    // Session restoration on app launch
-    authApi
-      .getMe()
-      .then((res) => {
-        if (res.data) setUser(res.data);
-      })
-      .catch(() => {
-        // Guest mode
-      });
-  }, [setUser]);
+    let isMounted = true;
+
+    const restoreSession = async () => {
+      try {
+        setInitializing(true);
+        // Step 1: Call refresh endpoint using HttpOnly cookie to obtain new in-memory access token
+        const refreshRes = await authApi.refresh();
+        if (!isMounted) return;
+
+        if (refreshRes?.data?.accessToken) {
+          setAccessToken(refreshRes.data.accessToken);
+
+          // Step 2: Load current user profile into store
+          const meRes = await authApi.getMe();
+          if (!isMounted) return;
+
+          if (meRes?.data) {
+            setUser(meRes.data);
+          }
+        } else {
+          logout();
+        }
+      } catch {
+        if (isMounted) {
+          logout();
+        }
+      } finally {
+        if (isMounted) {
+          setInitializing(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [setAccessToken, setUser, setInitializing, logout]);
+
 
   return (
     <Router>

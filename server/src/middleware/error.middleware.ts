@@ -21,7 +21,9 @@ export const errorMiddleware = (
   } else if (err.name === 'ValidationError') {
     statusCode = 400;
     errorCode = 'VALIDATION_ERROR';
-    message = err.message;
+    message = env.NODE_ENV === 'production'
+      ? 'The submitted request payload contains invalid or missing fields.'
+      : err.message;
   } else if (err.name === 'CastError') {
     statusCode = 400;
     errorCode = 'INVALID_ID';

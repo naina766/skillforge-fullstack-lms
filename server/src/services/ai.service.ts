@@ -201,20 +201,36 @@ SCHEMA:
   "nextAction": "Concrete immediate next action"
 }`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: systemPrompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 1500,
-          },
-        }),
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    let response: any;
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemPrompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 1500,
+            },
+          }),
+        }
+      );
+    } catch (fetchErr: any) {
+      if (fetchErr.name === 'AbortError' || controller.signal.aborted) {
+        logger.warn('Gemini API call timed out after 10s timeout, falling back to deterministic rule engine');
+      } else {
+        logger.warn(`Gemini API connection error (${fetchErr.message}), falling back to deterministic rule engine`);
       }
-    );
+      throw fetchErr;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       throw new Error(`Gemini API HTTP Error: ${response.status}`);

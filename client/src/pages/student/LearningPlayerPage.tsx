@@ -80,17 +80,9 @@ export const LearningPlayerPage: React.FC = () => {
         const slugRes = await courseApi.getCourseBySlug(courseId);
         if (slugRes?.data) return slugRes;
       } catch {
-        // Fallback: try by slug or search catalog
-        try {
-          const slugRes = await courseApi.getCourseBySlug(courseId);
-          if (slugRes?.data) return slugRes;
-        } catch {
-          // If still not found, fetch first available published course so student is never stuck
-          const catalogRes = await courseApi.getCourses({ limit: 1 });
-          if (catalogRes?.data?.items?.[0]) {
-            return { data: catalogRes.data.items[0] };
-          }
-        }
+        // Attempt lookup by slug if initial lookup failed
+        const slugRes = await courseApi.getCourseBySlug(courseId);
+        if (slugRes?.data) return slugRes;
       }
       throw new Error('Course not found');
     },
@@ -174,6 +166,7 @@ export const LearningPlayerPage: React.FC = () => {
       if (variables.isEnded || res.data.isCompleted || res.data.certificate) {
         queryClient.invalidateQueries({ queryKey: ['enrollment-player', courseId] });
         queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
+        queryClient.invalidateQueries({ queryKey: ['student-dashboard'] });
 
         if (res.data.certificate) {
           addToast('success', '🎉 100% Course Completed! Official Certificate issued.');

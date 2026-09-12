@@ -126,9 +126,9 @@ export const LandingPage: React.FC = () => {
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                   ))}
-                  <span className="text-xs font-bold text-slate-200 ml-1">4.9 / 5.0</span>
+                  <span className="text-xs font-bold text-slate-200 ml-1">5.0 Star Programs</span>
                 </div>
-                <p className="text-[11px] text-slate-400">Trusted by 10,000+ developers</p>
+                <p className="text-[11px] text-slate-400">Curated Software & Cloud Engineering Curriculum</p>
               </div>
             </div>
 
@@ -136,7 +136,7 @@ export const LandingPage: React.FC = () => {
 
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Engineers from Google, Amazon & top scale-ups</span>
+              <span>Cryptographically Verifiable Digital Certificates</span>
             </div>
           </div>
 

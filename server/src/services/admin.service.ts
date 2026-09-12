@@ -140,6 +140,15 @@ export class AdminService {
       throw new AppError('User not found.', 404, 'USER_NOT_FOUND');
     }
 
+    if (adminId && userId === adminId) {
+      if (isActive === false) {
+        throw new AppError('Administrators cannot deactivate their own account.', 400, 'CANNOT_DEACTIVATE_SELF');
+      }
+      if (role && role !== 'ADMIN') {
+        throw new AppError('Administrators cannot demote their own administrative role.', 400, 'CANNOT_DEMOTE_SELF');
+      }
+    }
+
     if (role) user.role = role;
     if (isActive !== undefined) user.isActive = isActive;
 

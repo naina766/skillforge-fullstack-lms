@@ -1,5 +1,8 @@
+import axios from 'axios';
 import axiosClient from './axiosClient';
 import { User, ApiResponse } from '../types';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const authApi = {
   register: async (payload: any) => {
@@ -9,6 +12,15 @@ export const authApi = {
 
   login: async (payload: any) => {
     const res = await axiosClient.post<ApiResponse<{ accessToken: string; user: User }>>('/auth/login', payload);
+    return res.data;
+  },
+
+  refresh: async () => {
+    const res = await axios.post<ApiResponse<{ accessToken: string }>>(
+      `${API_BASE_URL}/auth/refresh`,
+      {},
+      { withCredentials: true }
+    );
     return res.data;
   },
 
@@ -22,3 +34,4 @@ export const authApi = {
     return res.data;
   },
 };
+

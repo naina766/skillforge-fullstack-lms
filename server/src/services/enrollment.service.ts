@@ -124,9 +124,18 @@ export class EnrollmentService {
     }
 
     let totalLessonsCount = 0;
+    let lessonFound = false;
     course.curriculum.forEach((mod) => {
       totalLessonsCount += mod.lessons.length;
+      if (mod.lessons.some((l) => (l._id ? l._id.toString() === lessonId : false) || (l as any).id === lessonId)) {
+        lessonFound = true;
+      }
     });
+
+    if (!lessonFound) {
+      throw new AppError('Lesson does not belong to this course curriculum.', 400, 'INVALID_LESSON');
+    }
+
     if (totalLessonsCount === 0) totalLessonsCount = 1;
 
     const safeDuration = duration > 0 ? duration : 1;
@@ -218,9 +227,17 @@ export class EnrollmentService {
     }
 
     let totalLessonsCount = 0;
+    let lessonFound = false;
     course.curriculum.forEach((mod) => {
       totalLessonsCount += mod.lessons.length;
+      if (mod.lessons.some((l) => (l._id ? l._id.toString() === lessonId : false) || (l as any).id === lessonId)) {
+        lessonFound = true;
+      }
     });
+
+    if (!lessonFound) {
+      throw new AppError('Lesson does not belong to this course curriculum.', 400, 'INVALID_LESSON');
+    }
 
     if (totalLessonsCount === 0) totalLessonsCount = 1; // Prevent div by 0
 

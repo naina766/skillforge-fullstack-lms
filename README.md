@@ -35,10 +35,12 @@
 - **5-Step Course Creation Wizard:** Basic info, pricing & workshop scheduling, curriculum builder with modules/lessons, learning outcomes, and SEO publishing review.
 - **Instructor Analytics:** Revenue earnings, total student enrollments, completion rates, and average course ratings.
 
-### 🛡️ Admin Control Panel & Security
+### 🛡️ Admin Control Panel & Production Hardening
 - **Platform Analytics:** Real-time KPI metrics and Recharts visualizations for student growth and category distribution.
 - **User & Moderation Controls:** User management, role privilege toggles (`STUDENT`, `INSTRUCTOR`, `ADMIN`), course publish review pipeline, review moderation, and security audit log inspection.
 - **Production Hardening:** Helmet HTTP security headers (HSTS, nosniff, CORS), multi-tier rate limiting (global, auth, AI), and NoSQL injection query sanitization.
+- **Hardened Authentication Lifecycle:** Memory-only JWT access tokens (never stored in `localStorage`) paired with secure HttpOnly SameSite refresh cookies, cryptographic session token rotation, and fail-fast production secret validation.
+
 
 ---
 
@@ -129,21 +131,25 @@ docker compose exec server npm run seed
 
 ## 🧪 Automated Test Suite
 
-All 34 automated unit and integration tests pass cleanly:
+All 77 automated unit and integration tests pass cleanly across backend and frontend workspaces:
 
 ```bash
 # Run backend API integration tests (Vitest + Supertest)
 cd server
 npm test
 
-# Run frontend component tests (React Testing Library)
+# Run frontend component tests (Vitest + React Testing Library)
 cd ../client
 npm test
 ```
 
-### Test Suite Summary
-- `tests/aiMentor.test.ts` (15/15 passed) — Career roadmap, level assessment, prompt injection, hallucination defense, format filters, progress isolation.
-- `tests/ai.test.ts` (5/5 passed) — Security boundaries, user isolation, length limits, schema validation.
-- `tests/auth.test.ts` (4/4 passed) — Registration, JWT access/refresh token issuance, auth error handling.
-- `tests/course.test.ts` (2/2 passed) — Catalog pagination and public health endpoints.
-- `client/src/tests/` (8/8 passed) — Component rendering, state management, and AI message renderer.
+### Verified Test Suite Breakdown (77/77 Passed)
+- **`server/tests/rbac.test.ts` (14/14 passed)** — RBAC boundaries, course ownership, lesson curriculum membership validation (`INVALID_LESSON`), private certificate isolation, admin self-demotion/deactivation prevention, and media upload signing authorization.
+- **`server/tests/review.test.ts` (12/12 passed)** — Enrollment prerequisites, 1-5 star bounds, unique review constraints, dynamic rating distribution recalculation, and owner-only deletion.
+- **`server/tests/video.test.ts` (9/9 passed)** — Multi-pattern YouTube parsing, duration/size bounds (15 min / 500 MB), and Cloudinary signature generation.
+- **`server/tests/aiMentor.test.ts` (15/15 passed)** — Multi-role roadmaps, skill gap calculations, prompt injection defense, strict catalog grounding (zero hallucinations), format filters, and completed course exclusion.
+- **`server/tests/ai.test.ts` (5/5 passed)** — Length bounds (1-1,000 chars), schema validation, and user profile data isolation.
+- **`server/tests/auth.test.ts` (4/4 passed)** — Registration, bcrypt authentication, in-memory access token issuance, and HttpOnly refresh cookie rotation.
+- **`server/tests/course.test.ts` (2/2 passed)** — Catalog pagination, filtering, and public endpoints.
+- **`client/src/tests/` (16/16 passed)** — StarRating, ReviewCard, CourseRatingSummary, ReviewForm, CourseCard, and AIMessageRenderer component tests.
+

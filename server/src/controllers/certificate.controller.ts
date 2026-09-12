@@ -6,6 +6,16 @@ export class CertificateController {
   static async getCertificate(req: Request, res: Response, next: NextFunction) {
     try {
       const cert = await CertificateService.getCertificate(req.params.id);
+
+      const requestingUserId = req.user?.userId;
+      const studentId = (cert.student as any)?._id?.toString() || (cert.student as any)?.toString();
+      const isOwner = requestingUserId && studentId === requestingUserId;
+      const isAdmin = req.user?.role === 'ADMIN';
+
+      if (!isOwner && !isAdmin) {
+        return ApiResponse.error(res, 'You are not authorized to access this certificate record.', 403, 'FORBIDDEN');
+      }
+
       return ApiResponse.success(res, cert);
     } catch (error) {
       return next(error);

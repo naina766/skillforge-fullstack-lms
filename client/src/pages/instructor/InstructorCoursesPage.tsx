@@ -46,7 +46,10 @@ export const InstructorCoursesPage: React.FC = () => {
     onSuccess: (_, vars) => {
       addToast('success', `Course status updated to ${vars.status}.`);
       queryClient.invalidateQueries({ queryKey: ['instructor-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['instructor-courses'] });
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['course', vars.id] });
     },
     onError: (err: any) => {
       addToast('error', err.response?.data?.message || 'Failed to update course status.');

@@ -40,17 +40,8 @@ export const InstructorAnalyticsPage: React.FC = () => {
   const courses = analytics?.courses || [];
   const charts = analytics?.charts;
 
-  // Fallback monthly growth if none yet recorded
-  const monthlyData = charts?.monthlyGrowth && charts.monthlyGrowth.length > 0
-    ? charts.monthlyGrowth
-    : [
-        { month: '2026-04', students: 12, revenue: 588 },
-        { month: '2026-05', students: 28, revenue: 1372 },
-        { month: '2026-06', students: 45, revenue: 2205 },
-        { month: '2026-07', students: 64, revenue: 3136 },
-        { month: '2026-08', students: 95, revenue: 4655 },
-        { month: '2026-09', students: metrics?.totalStudents || 120, revenue: metrics?.totalRevenue || 5880 },
-      ];
+  // Real monthly growth from backend aggregation
+  const monthlyData = charts?.monthlyGrowth || [];
 
   const courseRevenueData = charts?.courseRevenue && charts.courseRevenue.length > 0
     ? charts.courseRevenue
@@ -142,25 +133,35 @@ export const InstructorAnalyticsPage: React.FC = () => {
                 <h3 className="text-sm font-bold text-slate-100">Revenue Trajectory ($)</h3>
                 <p className="text-xs text-slate-400">Monthly course tuition volume</p>
               </div>
-              <Badge variant="emerald">Growth +32%</Badge>
+              {monthlyData.length > 0 && (
+                <Badge variant="emerald">{monthlyData.length} Periods Recorded</Badge>
+              )}
             </div>
 
             <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyData}>
-                  <defs>
-                    <linearGradient id="instructorRevenueColor" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={11} />
-                  <YAxis stroke="#9ca3af" fontSize={11} />
-                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px', fontSize: '12px' }} />
-                  <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#instructorRevenueColor)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              {monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData}>
+                    <defs>
+                      <linearGradient id="instructorRevenueColor" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="month" stroke="#9ca3af" fontSize={11} />
+                    <YAxis stroke="#9ca3af" fontSize={11} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px', fontSize: '12px' }} />
+                    <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#instructorRevenueColor)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-xs text-slate-500 space-y-2 border border-dashed border-slate-800/80 rounded-2xl">
+                  <BarChart3 className="w-8 h-8 text-slate-600 mb-1" />
+                  <p className="font-semibold text-slate-400">No monthly revenue trends recorded yet</p>
+                  <p className="max-w-xs text-slate-500">When learners enroll in your published courses, monthly tuition milestones will plot here automatically.</p>
+                </div>
+              )}
             </div>
           </div>
 
