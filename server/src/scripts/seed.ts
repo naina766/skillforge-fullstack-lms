@@ -14,6 +14,13 @@ import { logger } from '../config/logger';
 
 const seedDatabase = async () => {
   try {
+    if (env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+      logger.error(
+        '[FATAL] Production database seeding aborted! Running demo seed in production is disabled to protect real data. Set ALLOW_DEMO_SEED=true if this is intentional.'
+      );
+      process.exit(1);
+    }
+
     logger.info('Connecting to database for seeding...');
     await connectDB();
 
