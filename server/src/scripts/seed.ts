@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { connectDB, disconnectDB } from '../config/db';
 import { User } from '../models/User';
 import { Category } from '../models/Category';
+import { Certificate } from '../models/Certificate';
 import { Course } from '../models/Course';
 import { Enrollment } from '../models/Enrollment';
 import { Review } from '../models/Review';
@@ -14,7 +15,7 @@ import { logger } from '../config/logger';
 
 const seedDatabase = async () => {
   try {
-    if (env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+    if (env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true' && process.env.SEED_DEMO_DATA !== 'true') {
       logger.error(
         '[FATAL] Production database seeding aborted! Running demo seed in production is disabled to protect real data. Set ALLOW_DEMO_SEED=true if this is intentional.'
       );
@@ -24,17 +25,7 @@ const seedDatabase = async () => {
     logger.info('Connecting to database for seeding...');
     await connectDB();
 
-    // Clear existing collections
-    await Promise.all([
-      User.deleteMany({}),
-      Category.deleteMany({}),
-      Course.deleteMany({}),
-      Enrollment.deleteMany({}),
-      Review.deleteMany({}),
-      Notification.deleteMany({}),
-    ]);
-
-    logger.info('Cleaned existing database collections.');
+    logger.info('Starting safe idempotent demo seed (non-destructive)...');
 
     // 1. Create Demo Users
     const salt = await bcrypt.genSalt(10);
@@ -42,42 +33,74 @@ const seedDatabase = async () => {
     const instructorPasswordHash = await bcrypt.hash(env.SEED_INSTRUCTOR_PASSWORD, salt);
     const studentPasswordHash = await bcrypt.hash(env.SEED_STUDENT_PASSWORD, salt);
 
-    const admin = await User.create({
-      name: 'Alexander Vance (Admin)',
-      email: 'admin@skillforge.dev',
+    const admin = await User.findOneAndUpdate(
+      { email: 'admin@skillforge.dev' },
+      {
+        $set: {
+          name: 'Alexander Vance (Admin)',
+          email: 'admin@skillforge.dev',
+          
       passwordHash: adminPasswordHash,
       role: 'ADMIN',
       bio: 'Platform Lead Architect & SkillForge Administrator',
       skills: ['DevOps', 'Security', 'Cloud Architecture'],
-    });
+    
+        }
+      },
+      { upsert: true, new: true }
+    );
 
-    const instructor1 = await User.create({
-      name: 'Dr. Elena Rostova',
-      email: 'instructor@skillforge.dev',
+    const instructor1 = await User.findOneAndUpdate(
+      { email: 'instructor@skillforge.dev' },
+      {
+        $set: {
+          name: 'Dr. Elena Rostova',
+          email: 'instructor@skillforge.dev',
+          
       passwordHash: instructorPasswordHash,
       role: 'INSTRUCTOR',
       bio: 'Ex-Principal Engineer & Staff Software Architect. 12+ years building distributed scale systems.',
       skills: ['Node.js', 'React', 'TypeScript', 'MongoDB', 'System Design'],
-    });
+    
+        }
+      },
+      { upsert: true, new: true }
+    );
 
-    const instructor2 = await User.create({
-      name: 'Sarah Jenkins',
-      email: 'sarah.instructor@skillforge.dev',
+    const instructor2 = await User.findOneAndUpdate(
+      { email: 'sarah.instructor@skillforge.dev' },
+      {
+        $set: {
+          name: 'Sarah Jenkins',
+          email: 'sarah.instructor@skillforge.dev',
+          
       passwordHash: instructorPasswordHash,
       role: 'INSTRUCTOR',
       bio: 'Senior Cloud Solutions Architect & DevOps Specialist.',
       skills: ['Docker', 'Kubernetes', 'AWS', 'CI/CD'],
-    });
+    
+        }
+      },
+      { upsert: true, new: true }
+    );
 
-    const studentMain = await User.create({
-      name: 'David Miller',
-      email: 'student@skillforge.dev',
+    const studentMain = await User.findOneAndUpdate(
+      { email: 'student@skillforge.dev' },
+      {
+        $set: {
+          name: 'David Miller',
+          email: 'student@skillforge.dev',
+          
       passwordHash: studentPasswordHash,
       role: 'STUDENT',
       bio: 'Aspiring Full-Stack Software Engineer looking to land top-tier tech roles.',
       skills: ['JavaScript', 'HTML/CSS'],
       interests: ['Web Development', 'AI & Machine Learning'],
-    });
+    
+        }
+      },
+      { upsert: true, new: true }
+    );
 
     // Create 35 diverse student accounts for realistic reviews & enrollments
     const additionalStudentsData = [
@@ -118,13 +141,21 @@ const seedDatabase = async () => {
       { name: 'Penelope Mitchell', email: 'penelope@skillforge.dev' },
     ];
 
-    const additionalStudents = await User.insertMany(
-      additionalStudentsData.map((s) => ({
-        ...s,
-        passwordHash: studentPasswordHash,
-        role: 'STUDENT',
-        skills: ['JavaScript', 'React', 'Node.js'],
-      }))
+    const additionalStudents = await Promise.all(
+      additionalStudentsData.map((s) =>
+        User.findOneAndUpdate(
+          { email: s.email },
+          {
+            $set: {
+              ...s,
+              passwordHash: studentPasswordHash,
+              role: 'STUDENT',
+              skills: ['JavaScript', 'React', 'Node.js'],
+            }
+          },
+          { upsert: true, new: true }
+        )
+      )
     );
 
     const allStudents = [studentMain, ...additionalStudents];
@@ -144,11 +175,19 @@ const seedDatabase = async () => {
       { name: 'Career Bootcamps', description: 'Resume building, portfolio creation, and tech interview prep.', icon: 'Briefcase' },
     ];
 
-    const categories = await Category.insertMany(
-      categoriesData.map((c) => ({
-        ...c,
-        slug: createSlug(c.name),
-      }))
+    const categories = await Promise.all(
+      categoriesData.map((c) =>
+        Category.findOneAndUpdate(
+          { slug: createSlug(c.name) },
+          {
+            $set: {
+              ...c,
+              slug: createSlug(c.name),
+            }
+          },
+          { upsert: true, new: true }
+        )
+      )
     );
 
     const categoryMap = new Map(categories.map((c) => [c.name, c._id]));
@@ -716,13 +755,21 @@ const seedDatabase = async () => {
     };
 
     const createdCourses = await Promise.all(
-      coursesData.map((c) =>
-        Course.create({
-          ...c,
-          thumbnail: c.thumbnail || defaultCourseThumbnails[c.title] || 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&auto=format&fit=crop&q=80',
-          slug: createSlug(c.title),
-        })
-      )
+      coursesData.map((c) => {
+        const slug = createSlug(c.title);
+        const thumbnail = c.thumbnail || defaultCourseThumbnails[c.title] || 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&auto=format&fit=crop&q=80';
+        return Course.findOneAndUpdate(
+          { slug },
+          {
+            $set: {
+              ...c,
+              thumbnail,
+              slug,
+            }
+          },
+          { upsert: true, new: true }
+        );
+      })
     );
 
     logger.info(`Created ${createdCourses.length} Courses & Workshops.`);
@@ -731,36 +778,51 @@ const seedDatabase = async () => {
     const primaryCourse = createdCourses[0];
     const completedCourse = createdCourses[4] || createdCourses[1];
 
-    // Active Enrollment
-    await Enrollment.create({
-      student: studentMain._id,
-      course: primaryCourse._id,
-      status: 'ACTIVE',
-      progress: primaryCourse.curriculum[0]?.lessons[0]?._id ? [primaryCourse.curriculum[0].lessons[0]._id.toString()] : [],
-      completedLessons: 1,
-      completionPercentage: 33,
-      startedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      lastAccessedAt: new Date(),
-    });
-
-    // Completed Enrollment with Certificate
-    const completedEnrollment = await Enrollment.create({
-      student: studentMain._id,
-      course: completedCourse._id,
-      status: 'COMPLETED',
-      progress: completedCourse.curriculum[0].lessons.map((l: any) => l._id.toString()),
-      completedLessons: completedCourse.curriculum[0].lessons.length,
-      completionPercentage: 100,
-      startedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-      completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-      certificateIssued: true,
-    });
-
-    // Issue Certificate
-    const cert = await CertificateService.issueCertificate(
-      (studentMain._id as any).toString(),
-      (completedCourse._id as any).toString()
+    // Active Enrollment (Idempotent upsert)
+    await Enrollment.findOneAndUpdate(
+      { student: studentMain._id, course: primaryCourse._id },
+      {
+        $set: {
+          student: studentMain._id,
+          course: primaryCourse._id,
+          status: 'ACTIVE',
+          progress: primaryCourse.curriculum[0]?.lessons[0]?._id ? [primaryCourse.curriculum[0].lessons[0]._id.toString()] : [],
+          completedLessons: 1,
+          completionPercentage: 33,
+          startedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+          lastAccessedAt: new Date(),
+        }
+      },
+      { upsert: true, new: true }
     );
+
+    // Completed Enrollment with Certificate (Idempotent upsert)
+    const completedEnrollment = await Enrollment.findOneAndUpdate(
+      { student: studentMain._id, course: completedCourse._id },
+      {
+        $set: {
+          student: studentMain._id,
+          course: completedCourse._id,
+          status: 'COMPLETED',
+          progress: completedCourse.curriculum[0].lessons.map((l: any) => l._id.toString()),
+          completedLessons: completedCourse.curriculum[0].lessons.length,
+          completionPercentage: 100,
+          startedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+          completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+          certificateIssued: true,
+        }
+      },
+      { upsert: true, new: true }
+    );
+
+    // Issue Certificate idempotently (reuse if already issued)
+    let cert = await Certificate.findOne({ student: studentMain._id, course: completedCourse._id });
+    if (!cert) {
+      cert = await CertificateService.issueCertificate(
+        (studentMain._id as any).toString(),
+        (completedCourse._id as any).toString()
+      );
+    }
 
     logger.info(`Created Enrollments and Certificate (${cert.certificateId}) for student@skillforge.dev.`);
 
@@ -858,23 +920,35 @@ const seedDatabase = async () => {
 
     logger.info(`Created 31 Verified Reviews for ${aiCourse.title} and synchronized course rating aggregates.`);
 
-    // 6. Create Notifications
-    await Notification.create({
-      user: studentMain._id,
-      title: 'Welcome to SkillForge! 🚀',
-      message: 'Explore 20+ courses, enroll in live workshops, and accelerate your software engineering career.',
-      type: 'SYSTEM',
-      isRead: true,
-    });
+    // 6. Create Notifications (Idempotent upsert)
+    await Notification.findOneAndUpdate(
+      { user: studentMain._id, title: 'Welcome to SkillForge! 🚀' },
+      {
+        $set: {
+          user: studentMain._id,
+          title: 'Welcome to SkillForge! 🚀',
+          message: 'Explore 20+ courses, enroll in live workshops, and accelerate your software engineering career.',
+          type: 'SYSTEM',
+          isRead: true,
+        }
+      },
+      { upsert: true, new: true }
+    );
 
-    await Notification.create({
-      user: studentMain._id,
-      title: 'Certificate Issued! 🎓',
-      message: `Congratulations! Your certificate for "${completedCourse.title}" is ready to view and share.`,
-      type: 'CERTIFICATE',
-      isRead: false,
-      link: '/dashboard/certificates',
-    });
+    await Notification.findOneAndUpdate(
+      { user: studentMain._id, title: 'Certificate Issued! 🎓' },
+      {
+        $set: {
+          user: studentMain._id,
+          title: 'Certificate Issued! 🎓',
+          message: `Congratulations! Your certificate for "${completedCourse.title}" is ready to view and share.`,
+          type: 'CERTIFICATE',
+          isRead: false,
+          link: '/dashboard/certificates',
+        }
+      },
+      { upsert: true, new: true }
+    );
 
     logger.info('Created Initial Notifications.');
     logger.info('=====================================================');
